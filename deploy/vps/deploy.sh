@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 APP_DIR="${FRAUDGUARD_DIR:-/opt/fraudguard}"
-CORE_REPO="${FRAUDGUARD_CORE_REPO:-Gusma-crypto/backend-fraudguardai}"
-AGENT_REPO="${FRAUDGUARD_AGENT_REPO:-Gusma-crypto/fraudguard-ai}"
+CORE_REPO="${FRAUDGUARD_CORE_REPO:-Gusma-crypto/Fraudguard-core}"
+AGENT_REPO="${FRAUDGUARD_AGENT_REPO:-Gusma-crypto/Agent-fraudguard}"
 REF="${FRAUDGUARD_REF:-main}"
 SOURCE_DIR="$APP_DIR/source"
 if [ -z "${GITHUB_TOKEN:-}" ]; then

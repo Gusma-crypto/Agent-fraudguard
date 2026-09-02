@@ -2,9 +2,9 @@
 set -Eeuo pipefail
 
 APP_DIR="${FRAUDGUARD_DIR:-/opt/fraudguard}"
-CORE_REPO="${FRAUDGUARD_CORE_REPO:-Gusma-crypto/backend-fraudguardai}"
+CORE_REPO="${FRAUDGUARD_CORE_REPO:-Gusma-crypto/Fraudguard-core}"
 CORE_REF="${FRAUDGUARD_CORE_REF:-main}"
-AGENT_RAW="${FRAUDGUARD_AGENT_RAW:-https://raw.githubusercontent.com/Gusma-crypto/fraudguard-ai/main/deploy/vps}"
+AGENT_RAW="${FRAUDGUARD_AGENT_RAW:-https://raw.githubusercontent.com/Gusma-crypto/Agent-fraudguard/main/deploy/vps}"
 CORE_RAW="https://raw.githubusercontent.com/${CORE_REPO}/${CORE_REF}/deploy/vps"
 
 if [ -z "${GITHUB_TOKEN:-}" ]; then

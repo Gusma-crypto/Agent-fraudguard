@@ -68,7 +68,7 @@ Installer mengambil installer/lingkungan dari Agent dan Compose/Caddy dari Core 
 ```bash
 read -rsp "GitHub token (Contents: read untuk Core): " GITHUB_TOKEN
 export GITHUB_TOKEN
-curl -fsSL https://raw.githubusercontent.com/Gusma-crypto/fraudguard-ai/main/deploy/vps/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Gusma-crypto/Agent-fraudguard/main/deploy/vps/install.sh | bash
 nano /opt/fraudguard/.env.production
 /opt/fraudguard/update-restart.sh
 ```
