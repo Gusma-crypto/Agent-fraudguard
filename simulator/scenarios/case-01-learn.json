@@ -1,0 +1,17 @@
+{
+  "scenario": "case-01-new-fake-cs",
+  "synthetic": true,
+  "endpoint": "POST /api/v1/fraud/analyze",
+  "idempotency_key": "scenario-case-01-learn",
+  "request": {
+    "event_type": "SUSPICIOUS_MESSAGE",
+    "content": "CS bank meminta segera transfer ke rekening keamanan 1234567890",
+    "source_ref": "synthetic-case-01-message",
+    "provenance": "hackfest-fixture"
+  },
+  "expected": {
+    "social_engineering_signal": true,
+    "memory_match": true,
+    "memory_status": "CORROBORATED"
+  }
+}

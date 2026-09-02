@@ -1,0 +1,15 @@
+{
+  "scenario": "case-01-reviewed-seed",
+  "source_case": "case-01-new-fake-cs",
+  "synthetic": true,
+  "review": {
+    "evidence_valid": true,
+    "provenance_present": true,
+    "independent_corroboration": true,
+    "reviewer_decision": "PROMOTE_TO_CORROBORATED"
+  },
+  "expected": {
+    "memory_status": "CORROBORATED",
+    "eligible_for_bounded_risk_signal": true
+  }
+}

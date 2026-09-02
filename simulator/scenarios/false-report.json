@@ -1,0 +1,12 @@
+{
+  "scenario": "unsupported-report",
+  "reporter": {
+    "verification": "unverified"
+  },
+  "evidence": [],
+  "expected": {
+    "memory_status": "UNVERIFIED_REPORT",
+    "trusted_memory": false,
+    "auto_block": false
+  }
+}

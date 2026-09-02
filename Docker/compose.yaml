@@ -1,0 +1,23 @@
+services:
+  fraudguard-agent:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile
+      target: runtime
+    image: fraudguard-ai-agent:local
+    env_file:
+      - path: ../.env
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${AGENT_PORT:-3000}:3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    restart: unless-stopped

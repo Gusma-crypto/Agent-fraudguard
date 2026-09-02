@@ -1,0 +1,27 @@
+{
+  "scenario": "case-02-related-payment",
+  "synthetic": true,
+  "endpoint": "POST /api/v1/payments/check",
+  "idempotency_key": "scenario-case-02-payment",
+  "request": {
+    "payment": {
+      "recipient": "1234567890",
+      "amount": 10000000,
+      "currency": "IDR"
+    },
+    "context": {
+      "recipient_is_new": true,
+      "unusual_amount": true,
+      "high_velocity": false,
+      "suspicious_message": "CS bank meminta segera transfer ke rekening keamanan 1234567890",
+      "source_ref": "synthetic-case-02-message",
+      "provenance": "hackfest-fixture"
+    }
+  },
+  "expected": {
+    "memory_match": true,
+    "risk_score": 100,
+    "policy_decision": "TEMPORARY_HOLD",
+    "intervention_required": true
+  }
+}
