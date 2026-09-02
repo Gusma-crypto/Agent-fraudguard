@@ -6,10 +6,10 @@ risk/policy selalu berasal dari FraudGuard Core.
 
 ## Menjalankan
 
-1. Deploy `logic-backend-server` dan buat API key khusus agent.
+1. Deploy repository `Fraudguard-core` dan buat API key khusus agent.
 2. Salin `.env.example` ke `.env`.
 3. Isi `FRAUDGUARD_CORE_BASE_URL` dan `FRAUDGUARD_CORE_API_KEY`.
-4. Jalankan `docker compose -f Docker/compose.yaml up --build`.
+4. Jalankan `./deploy.sh deploy`.
 5. Periksa `/health` dan `/ready`.
 
 ## Percakapan
@@ -52,8 +52,9 @@ OpenClaw baru, lalu tulis misalnya `Buat skill dari capability fraud-detection v
 dan tidak boleh membuat score, policy, endpoint, atau permission sendiri.
 
 Agent tetap harus dideploy walaupun Core sudah aktif karena tanggung jawab keduanya
-berbeda. Gunakan `Docker/compose.production.yaml`, lalu pastikan `/health` dan `/ready`
-berhasil sebelum menghubungkan OpenClaw.
+berbeda. Gunakan root `deploy.sh`; jalankan `update` untuk pull + rebuild atau `restart`
+untuk restart tanpa build. Pastikan `/health` dan `/ready` berhasil sebelum menghubungkan
+OpenClaw.
 
 Production saat ini harus memakai satu replica karena session conversation disimpan
 in-memory dengan TTL. Untuk horizontal scaling, tambahkan shared Redis session store

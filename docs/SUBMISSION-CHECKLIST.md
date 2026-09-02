@@ -36,13 +36,13 @@ menandai deployment, video, artikel, atau submission sebagai selesai.
 Perintah verifikasi:
 
 ```bash
-# fraudguard-ai-agent
-docker build --target test -f Docker/Dockerfile -t fraudguard-ai-agent:test .
-docker run --rm fraudguard-ai-agent:test pytest -q
-docker run --rm fraudguard-ai-agent:test ruff check src tests scripts
+# Agent-fraudguard
+docker build --target test -f Docker/Dockerfile -t agent-fraudguard:test .
+docker run --rm agent-fraudguard:test pytest -q
+docker run --rm agent-fraudguard:test ruff check src tests scripts
 
-# logic-backend-server
-docker build --target test -f deploy/Dockerfile -t fraudguard-core:test .
+# Fraudguard-core
+docker build --target test -f Docker/Dockerfile -t fraudguard-core:test .
 docker run --rm fraudguard-core:test pytest -q
 docker run --rm fraudguard-core:test ruff check src tests migrations
 ```

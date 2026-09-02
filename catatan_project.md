@@ -12,6 +12,15 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - **Subkategori:** Cyber Security & Anti Scam.
 - **Prioritas:** P0 end-to-end sebelum P1 atau UI polish.
 
+## Deployment Docker terpadu - 2026-09-03
+
+- Artifact Agent aktif sekarang adalah `Docker/Dockerfile` dan `Docker/compose.yml`.
+- Root `deploy.sh` menangani deploy awal, update fast-forward, restart, status, logs,
+  stop, serta validasi konfigurasi.
+- Agent dan Core tidak lagi bergantung pada nama/path folder saudara; komunikasi lokal
+  memakai external Docker network `fraudguard-network` dengan alias
+  `fraudguard-core-api` dan `fraudguard-agent`.
+
 ## Security hardening — 2026-09-02
 
 - Deploy Core `deploy-vps.sh` sekarang gagal dengan exit code `1` jika `/ready` tidak

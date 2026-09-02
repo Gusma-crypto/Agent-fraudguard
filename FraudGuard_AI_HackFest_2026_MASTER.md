@@ -2,7 +2,7 @@
 
 FraudGuard adalah fraud-protection platform dengan dua runtime yang sengaja dipisahkan:
 
-1. `fraudguard-ai-agent`: conversation, context, reasoning, orchestration, guardrails,
+1. `Agent-fraudguard`: conversation, context, reasoning, orchestration, guardrails,
    skill/tool selection, dan user explanation.
 2. `logic-backend-server`: identity, tenant scope, risk, policy, protected decisions,
    PostgreSQL persistence, incident/evidence, learning, webhook, dan authoritative audit.

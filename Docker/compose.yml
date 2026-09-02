@@ -1,13 +1,17 @@
+name: fraudguard-agent
+
 services:
-  fraudguard-agent:
+  agent:
     build:
       context: ..
       dockerfile: Docker/Dockerfile
       target: runtime
-    image: ${FRAUDGUARD_AGENT_IMAGE:-fraudguard-ai-agent:production}
+    image: ${FRAUDGUARD_AGENT_IMAGE:-agent-fraudguard:local}
     env_file:
-      - path: ../.env.production
+      - path: ${AGENT_ENV_FILE:-../.env}
         required: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:${AGENT_PORT:-3000}:3000"
     read_only: true
@@ -19,3 +23,11 @@ services:
     pids_limit: 128
     mem_limit: 512m
     restart: unless-stopped
+    networks:
+      fraudguard-network:
+        aliases: [fraudguard-agent]
+
+networks:
+  fraudguard-network:
+    external: true
+    name: fraudguard-network

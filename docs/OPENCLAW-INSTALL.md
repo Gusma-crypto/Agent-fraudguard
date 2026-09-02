@@ -18,7 +18,7 @@ curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/ready
 ```
 
-Dari repository `fraudguard-ai-agent` di VPS:
+Dari repository `Agent-fraudguard` di VPS:
 
 ```bash
 chmod +x scripts/install_openclaw.sh scripts/fraudguard_agent_cli.py

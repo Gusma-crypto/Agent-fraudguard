@@ -4,6 +4,12 @@ All notable workspace, product, configuration, and documentation changes are rec
 
 ## Unreleased
 
+### Unified root Docker operations - 2026-09-03
+
+- Consolidated Agent Docker deployment into `Docker/compose.yml` and removed duplicate local/production Compose files.
+- Added root `deploy.sh` actions for deploy, fast-forward update, restart, status, logs, safe stop, and validation.
+- Replaced fixed sibling-directory coupling with the shared external `fraudguard-network` contract used by FraudGuard Core.
+
 ### Security and deployment hardening - 2026-09-02
 
 - Hardened Agent Core-response parsing so malformed error envelopes and non-object data

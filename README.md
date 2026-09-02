@@ -1,7 +1,7 @@
 # FraudGuard AI Agent
 
 FraudGuard AI Agent adalah layer **Reasoning + Orchestration + Conversation** untuk
-FraudGuard Core di `../logic-backend-server`.
+FraudGuard Core di repository `Fraudguard-core`.
 
 Boundary final:
 
@@ -44,7 +44,8 @@ Jalankan Core terlebih dahulu di `http://localhost:8080`, kemudian:
 
 ```bash
 cp .env.example .env
-docker compose -f Docker/compose.yaml up --build
+chmod +x deploy.sh
+./deploy.sh deploy
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/ready
 ```
@@ -60,32 +61,36 @@ curl -X POST http://127.0.0.1:3000/agent/v1/chat \
 Jika `AGENT_ACCESS_KEY` diisi, tambahkan header `X-Agent-Key`. Core credential hanya
 disimpan di service agent dan tidak pernah dikirim ke browser/model.
 
-## Deploy agent setelah Core aktif
+## Deploy Agent setelah Core aktif
 
-Untuk instalasi gabungan tanpa clone repository di VPS, gunakan installer public berikut.
-Installer mengambil installer/lingkungan dari Agent dan Compose/Caddy dari Core private.
-
-```bash
-read -rsp "GitHub token (Contents: read untuk Core): " GITHUB_TOKEN
-export GITHUB_TOKEN
-curl -fsSL https://raw.githubusercontent.com/Gusma-crypto/Agent-fraudguard/main/deploy/vps/install.sh | bash
-nano /opt/fraudguard/.env.production
-/opt/fraudguard/update-restart.sh
-```
-
-Token hanya dipakai saat download dan tidak disimpan ke disk. Image Core, Agent, dan
-Frontend kemudian diambil dari GHCR.
-
-Core yang sudah berjalan tidak menggantikan service agent. Deploy agent sebagai
-container terpisah pada VPS:
+Agent dibangun hanya dari repository ini dan tidak membutuhkan path tetap seperti
+`/opt/Agent-fraudguard`. Compose menghubungkannya ke Core melalui network Docker bersama
+`fraudguard-network`. Deploy Core lebih dahulu, lalu:
 
 ```bash
-cp Docker/docker.env.example .env.production
-# Isi URL HTTPS Core, scoped Core key, dan agent client key di .env.production.
-docker compose -f Docker/compose.production.yaml up -d --build
+cp .env.example .env
+# Isi scoped Core API key dan samakan AGENT_ACCESS_KEY dengan konfigurasi Core.
+chmod +x deploy.sh
+./deploy.sh deploy
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/ready
 ```
+
+Perintah operasional tersedia dari root repository:
+
+```bash
+./deploy.sh deploy    # build dan deploy source saat ini
+./deploy.sh update    # git pull --ff-only, rebuild, dan recreate
+./deploy.sh restart   # restart lalu validasi koneksi Core
+./deploy.sh status
+./deploy.sh logs
+./deploy.sh stop
+./deploy.sh check
+```
+
+Untuk memakai `.env.production`, jalankan
+`ENV_FILE=.env.production ./deploy.sh deploy`. Gunakan `NO_CACHE=1` bersama `deploy`
+atau `update` jika image harus dibangun ulang tanpa cache.
 
 Agent dipublish hanya pada loopback `127.0.0.1:3000`. OpenClaw yang berjalan langsung
 di host dapat memakai URL tersebut. Jika OpenClaw berada dalam container lain, gunakan
@@ -199,9 +204,9 @@ di [skills/skill-creator/SKILL.md](skills/skill-creator/SKILL.md).
 ## Quality
 
 ```bash
-docker build --target test -f Docker/Dockerfile -t fraudguard-ai-agent:test .
-docker run --rm fraudguard-ai-agent:test pytest -q
-docker run --rm fraudguard-ai-agent:test ruff check src tests scripts
+docker build --target test -f Docker/Dockerfile -t agent-fraudguard:test .
+docker run --rm agent-fraudguard:test pytest -q
+docker run --rm agent-fraudguard:test ruff check src tests scripts
 ```
 
 Struktur runtime aktif hanya berada di `src/fraudguard_agent`. Aset `skills/`,
