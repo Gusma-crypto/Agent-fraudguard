@@ -187,6 +187,23 @@ Narasi yang meminta OTP, password, PIN, atau CVV menghasilkan indikator boolean
 bobot risiko pada indikator tersebut. OpenClaw wajib mempertahankan decision/score Core
 dan tidak boleh mengubah `ALLOW` menjadi klaim fraud atau kepastian "100% penipuan".
 
+Agent juga mengenali dua journey berisiko tinggi: link/form + OTP/credential, serta
+impersonation marketplace/bank + hadiah + permintaan transfer/remote guidance. Journey
+tersebut memakai skill `malicious-url` atau `social-engineering`, tetapi keputusan tetap
+berasal dari Core. Untuk lookup eksplisit gunakan context `intelligence_query`, optional
+`entity_type`, dan `deep_search`; skill `intelligence-search` tidak mengarang evidence
+ketika public discovery belum dikonfigurasi.
+
+Setiap lookup mengembalikan blok terstruktur `intelligence.sources`,
+`intelligence.evidence`, dan `intelligence.claims`. Jika bukti ditemukan, OpenClaw/UI
+menampilkan nama dan URL HTTPS sumber, metode akses, waktu, ringkasan evidence,
+confidence, serta status verifikasi. Jika tidak ditemukan, array kosong dan pesan
+“no supporting source/evidence” harus ditampilkan secara eksplisit. Status `UNVERIFIED`
+tetap bukan vonis fraud.
+Jika tersedia, dashboard juga menampilkan thumbnail HTTPS dan `archived_excerpt` beserta
+content hash. Snapshot adalah cadangan provenance ketika sumber asli mati, tetapi tidak
+mengubah evidence `UNVERIFIED` menjadi fakta terkonfirmasi.
+
 ### Membuat skill baru untuk pengguna awam
 
 `skill-creator` adalah helper development opsional, bukan skill pemeriksaan fraud

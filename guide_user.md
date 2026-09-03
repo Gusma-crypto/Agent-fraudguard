@@ -41,6 +41,24 @@ mengumpulkan nilainya. Jangan pernah memasukkan nilai rahasia tersebut ke chat. 
 harus membedakan saran keamanan umum dari keputusan Core dan tidak boleh membuat vonis
 fraud sendiri ketika Core mengembalikan `ALLOW`.
 
+Untuk kasus link yang meminta pengisian form/OTP, hentikan interaksi, tutup halaman, dan
+hubungi penyedia lewat kanal resmi yang dicari sendiri. Untuk telepon hadiah yang meminta
+transfer, akhiri telepon dan jangan mengikuti panduan transfer sambil tetap tersambung.
+FraudGuard akan memilih jalur `malicious-url` atau `social-engineering` dan dapat mencatat
+intervensi yang diotorisasi Core; pencatatan itu tidak membatalkan transaksi eksternal.
+
+Lookup nomor/rekening/domain dapat diberikan sebagai context non-rahasia
+`intelligence_query`. Status `UNVERIFIED`, `INSUFFICIENT_INTELLIGENCE`, atau
+`PENDING_AGENT_DISCOVERY` berarti bukti belum cukup—bukan berarti aman atau pasti fraud.
+Untuk setiap hasil lookup, periksa bagian `intelligence.sources` dan
+`intelligence.evidence`. Bila data tersedia, Agent menampilkan URL HTTPS sumber,
+metode akses, waktu observasi, ringkasan, confidence, dan status verifikasinya. Bila
+keduanya kosong, hasil wajib menyatakan bahwa belum ada sumber/bukti pendukung—jangan
+menganggap hasil kosong sebagai bukti bahwa identifier aman.
+Label “snapshot tersimpan” berarti excerpt minimum telah disimpan Core agar temuan masih
+dapat diaudit saat link mati. Snapshot tersebut tetap mengikuti status verifikasi dan
+tidak boleh diperlakukan sebagai vonis otomatis.
+
 ## Bukti demo dan submission
 
 Sebelum merekam atau mengirim submission, ikuti `docs/SUBMISSION-CHECKLIST.md`. Jangan

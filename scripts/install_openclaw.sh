@@ -86,7 +86,14 @@ if [[ -z "$workspace" || "$workspace" != /* ]]; then
   exit 1
 fi
 
-skills=(fraud-detection safety-payment realtime-intervention)
+skills=(
+  fraud-detection
+  safety-payment
+  realtime-intervention
+  intelligence-search
+  social-engineering
+  malicious-url
+)
 if [[ $with_creator -eq 1 ]]; then
   skills+=(skill-creator)
 fi

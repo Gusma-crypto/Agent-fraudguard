@@ -21,6 +21,22 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   memakai external Docker network `fraudguard-network` dengan alias
   `fraudguard-core-api` dan `fraudguard-agent`.
 
+## Scam journey + Intelligence P0 - 2026-09-03
+
+- Planner extracts link-click, credential, prize, authority-impersonation, payment, and
+  remote-guidance candidate facts without carrying secret values.
+- New skills: `malicious-url`, `social-engineering`, and `intelligence-search`; installer
+  includes all three by default.
+- Explicit lookup is bounded to Core `POST /api/v1/intelligence/search`; Agent still has
+  no generic HTTP, SQL, filesystem, or shell tool.
+- Unknown deep searches remain `PENDING_AGENT_DISCOVERY` until an allowlisted public
+  provider is implemented; the agent must not invent sources or accusations.
+- Every lookup propagates Core `sources`, `evidence`, and `claims`; OpenClaw must show
+  source attribution and evidence metadata when present, or an explicit no-evidence state.
+- Optional thumbnail URLs remain external HTTPS references; bounded archived excerpts and
+  hashes provide durable fallback context without treating an unverified report as truth.
+- Regression coverage includes link/form/OTP and marketplace prize/transfer narratives.
+
 ## Perbaikan routing audit setelah intervensi - 2026-09-03
 
 - `intervention_result` dan `intervention_status` sekarang merupakan context sekali-pakai

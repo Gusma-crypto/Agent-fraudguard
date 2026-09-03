@@ -4,6 +4,17 @@ All notable workspace, product, configuration, and documentation changes are rec
 
 ## Unreleased
 
+### Scam-journey prevention and Intelligence routing - 2026-09-03
+
+- Added deterministic extraction for phishing link/credential chains and marketplace prize/payment social engineering.
+- Added `malicious-url`, `social-engineering`, and `intelligence-search` OpenClaw skills.
+- Added bounded `intelligence_lookup` routing and structured Intelligence output from Core.
+- Added per-search source/evidence propagation with explicit empty evidence handling and
+  source URL, access method, time, confidence, and verification-status guidance.
+- Added guidance for safe HTTPS thumbnails and durable, content-hashed evidence excerpts
+  when an original public source later becomes unavailable.
+- Updated the OpenClaw installer and regression coverage for both real-world scam journeys.
+
 ### Credential-request detection and authority wording - 2026-09-03
 
 - Added deterministic detection for narratives requesting OTP, password, PIN, or CVV without collecting credential values.

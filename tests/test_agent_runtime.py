@@ -91,6 +91,52 @@ class FakeCore:
             "data": {"items": [{"action": "INTERVENTION_RESPONSE_RECORDED"}]},
         }
 
+    async def intelligence_lookup(
+        self, arguments: dict[str, Any], trace_id: str | None
+    ) -> dict[str, Any]:
+        self.calls.append("intelligence_lookup")
+        return {
+            "trace_id": trace_id or "00000000-0000-0000-0000-000000000020",
+            "data": {
+                "entity": {
+                    "id": "00000000-0000-0000-0000-000000000021",
+                    "type": arguments.get("entity_type", "PHONE"),
+                    "display_value": "+628****7890",
+                    "status": "UNVERIFIED",
+                },
+                "status": "UNVERIFIED",
+                "local_match": True,
+                "sources_found": 1,
+                "sources": [
+                    {
+                        "id": "00000000-0000-0000-0000-000000000022",
+                        "name": "Authorized public API",
+                        "type": "SOCIAL_MEDIA",
+                        "url": "https://social.example/post/1",
+                        "thumbnail_url": "https://social.example/thumb/1.jpg",
+                        "access_method": "OFFICIAL_API",
+                        "status": "UNVERIFIED",
+                    }
+                ],
+                "evidence": [
+                    {
+                        "id": "00000000-0000-0000-0000-000000000023",
+                        "type": "PUBLIC_SCAM_REPORT",
+                        "summary": "A public post reports suspicious payment instructions.",
+                        "archived_excerpt": "The post advertised a prize and requested payment.",
+                        "content_hash": "abc123",
+                        "status": "UNVERIFIED",
+                        "confidence": 0.6,
+                        "observed_at": "2026-09-03T00:00:00Z",
+                    }
+                ],
+                "claims": [],
+                "deep_search": {"requested": True, "status": "NOT_REQUIRED"},
+                "risk": {"score": 0, "severity": "low", "signals": []},
+                "policy": {"decision": "ALLOW", "reason_codes": ["RISK_SCORE_0"]},
+            },
+        }
+
 
 def make_runtime() -> tuple[AgentRuntime, SessionStore, FakeCore]:
     settings = Settings(fraudguard_core_api_key="test-core-key")
@@ -222,3 +268,59 @@ async def test_intervention_response_is_one_shot_then_audit_routes_to_trace_tool
     assert core.calls == ["submit_intervention_response", "get_trace_audit"]
     assert "intervention_result" not in session.known_facts
     assert "intervention_status" not in session.known_facts
+
+
+@pytest.mark.asyncio
+async def test_intelligence_search_preserves_unverified_status_and_core_decision() -> None:
+    runtime, sessions, core = make_runtime()
+
+    result = await runtime.chat(
+        await sessions.create(),
+        "Cek nomor ini",
+        {
+            "intelligence_query": "0812-3456-7890",
+            "entity_type": "PHONE",
+            "deep_search": True,
+        },
+    )
+
+    assert core.calls == ["intelligence_lookup"]
+    assert result.selected_skill == "intelligence-search"
+    assert result.decision == "ALLOW"
+    assert result.actions == []
+    assert result.intelligence is not None
+    assert result.intelligence["status"] == "UNVERIFIED"
+    assert result.intelligence["entity"]["display_value"] == "+628****7890"
+    assert result.intelligence["sources"][0]["url"] == "https://social.example/post/1"
+    assert result.intelligence["sources"][0]["thumbnail_url"].endswith("/thumb/1.jpg")
+    assert result.intelligence["evidence"][0]["status"] == "UNVERIFIED"
+    assert result.intelligence["evidence"][0]["archived_excerpt"].startswith("The post")
+
+
+@pytest.mark.asyncio
+async def test_phishing_journey_returns_immediate_stop_guidance() -> None:
+    runtime, sessions, _core = make_runtime()
+
+    result = await runtime.chat(
+        await sessions.create(),
+        "Dia mengirim link, suruh isi formulir, lalu dapat OTP dan disuruh klik link",
+        {},
+    )
+
+    assert result.selected_skill == "malicious-url"
+    assert "Tutup halaman" in result.message
+    assert "jangan gunakan atau bagikan OTP" in result.message
+
+
+@pytest.mark.asyncio
+async def test_prize_transfer_journey_returns_call_and_transfer_stop_guidance() -> None:
+    runtime, sessions, _core = make_runtime()
+
+    result = await runtime.chat(
+        await sessions.create(),
+        "Telepon mengaku dari Shopee, dapat hadiah bila transfer dan ikuti instruksi",
+        {},
+    )
+
+    assert result.selected_skill == "social-engineering"
+    assert "Akhiri telepon dan hentikan transfer" in result.message

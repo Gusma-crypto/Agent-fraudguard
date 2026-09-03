@@ -110,6 +110,7 @@ class ChatResponse(BaseModel):
     score: int | None = None
     reason_codes: list[str] = Field(default_factory=list)
     actions: list[ActionExecution] = Field(default_factory=list)
+    intelligence: dict[str, Any] | None = None
 
 
 class SessionView(BaseModel):

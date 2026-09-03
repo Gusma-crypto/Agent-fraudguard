@@ -240,6 +240,10 @@ class AgentRuntime:
             )
             data = {**data, "intervention_id": action_data.get("id")}
         response_message, state = explain(decision, data, session.language)
+        if plan.selected_skill == "malicious-url":
+            response_message += text("phishing_stop", session.language)
+        elif plan.selected_skill == "social-engineering":
+            response_message += text("social_stop", session.language)
         if actions:
             response_message += text("action_recorded", session.language)
         session.state = state
@@ -250,6 +254,23 @@ class AgentRuntime:
             tool_calls=tool_calls,
             decision=decision,
             actions=actions,
+            intelligence=(
+                {
+                    key: data.get(key)
+                    for key in (
+                        "entity",
+                        "status",
+                        "local_match",
+                        "sources_found",
+                        "deep_search",
+                        "sources",
+                        "evidence",
+                        "claims",
+                    )
+                }
+                if plan.selected_tool == "intelligence_lookup"
+                else None
+            ),
         )
 
     def _response(
@@ -261,6 +282,7 @@ class AgentRuntime:
         tool_calls: list[str] | None = None,
         decision: dict[str, Any] | None = None,
         actions: list[ActionExecution] | None = None,
+        intelligence: dict[str, Any] | None = None,
     ) -> ChatResponse:
         session.updated_at = datetime.now(UTC)
         values = decision or {}
@@ -278,4 +300,5 @@ class AgentRuntime:
             score=values.get("score"),
             reason_codes=values.get("reason_codes", []),
             actions=actions or [],
+            intelligence=intelligence,
         )

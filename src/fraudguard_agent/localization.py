@@ -7,10 +7,16 @@ LANGUAGE_MARKERS = {
         "anda",
         "apakah",
         "dengan",
+        "dia",
+        "disuruh",
+        "hadiah",
         "ini",
         "jangan",
+        "mengirim",
         "rekening",
         "saya",
+        "suruh",
+        "telepon",
         "tolong",
     },
     "ms": {
@@ -66,6 +72,14 @@ MESSAGES = {
             "must be escalated."
         ),
         "loop": "The tool returned the same result repeatedly; the loop was stopped.",
+        "phishing_stop": (
+            " Close the page, do not use or share any OTP, and contact the provider "
+            "through an independently located official channel."
+        ),
+        "social_stop": (
+            " End the call and stop the transfer. Contact the claimed company through "
+            "its official app, site, or a number you find independently."
+        ),
         "missing": (
             "I need the following non-sensitive information: {fields}. Do not send a "
             "password, PIN, OTP, or CVV."
@@ -120,6 +134,14 @@ MESSAGES = {
             "dan kasus perlu dieskalasikan."
         ),
         "loop": "Tool mengembalikan hasil yang sama berulang kali; loop dihentikan.",
+        "phishing_stop": (
+            " Tutup halaman, jangan gunakan atau bagikan OTP, lalu hubungi penyedia "
+            "melalui kanal resmi yang Anda cari sendiri."
+        ),
+        "social_stop": (
+            " Akhiri telepon dan hentikan transfer. Hubungi perusahaan yang diklaim "
+            "melalui aplikasi, situs, atau nomor resmi yang Anda cari sendiri."
+        ),
         "missing": (
             "Saya memerlukan informasi non-sensitif berikut: {fields}. Jangan kirim "
             "password, PIN, OTP, atau CVV."
@@ -175,6 +197,14 @@ MESSAGES = {
             "kes mesti dieskalasikan."
         ),
         "loop": "Tool mengembalikan keputusan sama berulang kali; gelung dihentikan.",
+        "phishing_stop": (
+            " Tutup halaman, jangan gunakan atau kongsi OTP, kemudian hubungi penyedia "
+            "melalui saluran rasmi yang anda cari sendiri."
+        ),
+        "social_stop": (
+            " Tamatkan panggilan dan hentikan pindahan. Hubungi syarikat melalui aplikasi, "
+            "laman, atau nombor rasmi yang anda cari sendiri."
+        ),
         "missing": (
             "Saya memerlukan maklumat bukan sensitif berikut: {fields}. Jangan hantar "
             "kata laluan, PIN, OTP, atau CVV."

@@ -92,6 +92,54 @@ async def test_intervention_contract_is_idempotent() -> None:
     assert captured["idempotency"].startswith("agent-intervention:")
 
 
+@pytest.mark.asyncio
+async def test_intelligence_lookup_uses_bounded_core_endpoint() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            201,
+            json={
+                "data": {
+                    "status": "INSUFFICIENT_INTELLIGENCE",
+                    "entity": {"type": "PHONE", "display_value": "+628****7890"},
+                },
+                "meta": {"trace_id": request.headers["X-Trace-ID"]},
+            },
+        )
+
+    core = CoreClient(
+        Settings(
+            fraudguard_core_base_url="https://core.example/api/v1",
+            fraudguard_core_api_key="scoped-test-key",
+        )
+    )
+    await core.client.aclose()
+    core.client = httpx.AsyncClient(
+        base_url="https://core.example", transport=httpx.MockTransport(handler)
+    )
+    await core.intelligence_lookup(
+        {
+            "query": "0812-3456-7890",
+            "entity_type": "PHONE",
+            "deep_search": False,
+            "context": {},
+        },
+        None,
+    )
+    await core.close()
+
+    assert captured["path"] == "/api/v1/intelligence/search"
+    assert captured["body"] == {
+        "query": "0812-3456-7890",
+        "entity_type": "PHONE",
+        "deep_search": False,
+        "context": {},
+    }
+
+
 def test_production_requires_https_and_credentials() -> None:
     with pytest.raises(ValueError, match="HTTPS"):
         Settings(app_env="production", fraudguard_core_base_url="http://core/api/v1")

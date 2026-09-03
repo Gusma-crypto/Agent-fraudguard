@@ -42,6 +42,62 @@ def test_credential_request_routes_to_fraud_analysis_without_secret_value(
     assert "otp" not in plan.arguments["context"]
 
 
+def test_phishing_otp_journey_extracts_chain_and_uses_url_skill() -> None:
+    planner = DeterministicPlanner()
+
+    plan = planner.plan(
+        "Dia mengirim link, suruh isi formulir, lalu dapat OTP dan disuruh klik link",
+        {},
+    )
+
+    assert plan.selected_skill == "malicious-url"
+    assert plan.selected_tool == "fraud_analyze"
+    assert plan.arguments["context"] == {
+        "suspicious_url": True,
+        "third_party_instruction": True,
+        "credential_request": True,
+        "link_click_instruction": True,
+    }
+
+
+def test_marketplace_prize_transfer_extracts_social_engineering_chain() -> None:
+    planner = DeterministicPlanner()
+
+    plan = planner.plan(
+        "Telepon mengaku dari Shopee, saya dapat hadiah bila transfer dan harus ikuti instruksi",
+        {},
+    )
+
+    assert plan.selected_skill == "social-engineering"
+    assert plan.arguments["context"]["impersonation"] is True
+    assert plan.arguments["context"]["authority_impersonation"] is True
+    assert plan.arguments["context"]["prize_scam"] is True
+    assert plan.arguments["context"]["payment_request"] is True
+    assert plan.arguments["context"]["remote_guidance"] is True
+
+
+def test_explicit_intelligence_lookup_routes_to_bounded_core_tool() -> None:
+    planner = DeterministicPlanner()
+
+    plan = planner.plan(
+        "Cek nomor ini",
+        {
+            "intelligence_query": "0812-3456-7890",
+            "entity_type": "PHONE",
+            "deep_search": True,
+        },
+    )
+
+    assert plan.intent is Intent.INTELLIGENCE_SEARCH
+    assert plan.selected_tool == "intelligence_lookup"
+    assert plan.arguments == {
+        "query": "0812-3456-7890",
+        "entity_type": "PHONE",
+        "deep_search": True,
+        "context": {},
+    }
+
+
 def test_in_memory_sessions_reject_horizontal_scaling() -> None:
     with pytest.raises(ValueError, match="shared Redis session store"):
         Settings(agent_replicas=2)

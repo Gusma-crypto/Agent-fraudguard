@@ -13,3 +13,11 @@ intervensi.
 
 OpenClaw harus memanggil endpoint agent atau adapter yang memetakan tepat ke inventory
 ini. URL arbitrary dan caller-supplied tenant authority dilarang.
+# Intelligence lookup evidence
+
+`intelligence_lookup` returns Core-owned `sources`, `evidence`, and `claims`. Consumers
+must render every available HTTPS source with its attribution and must preserve evidence
+status/confidence/provenance. Empty arrays mean no supporting evidence is stored; they do
+not mean the queried entity is safe. The Agent must never synthesize a URL or citation.
+Optional HTTPS thumbnails and bounded archived excerpts may be rendered, but archived
+content must preserve its Core status and content hash.

@@ -10,6 +10,7 @@ class Intent(StrEnum):
     INTERVENTION_RESPONSE = "intervention_response"
     INCIDENT_LOOKUP = "incident_lookup"
     TRACE_LOOKUP = "trace_lookup"
+    INTELLIGENCE_SEARCH = "intelligence_search"
     FRAUD_EDUCATION = "fraud_education"
     UNKNOWN = "unknown"
 
@@ -52,7 +53,8 @@ def candidate_facts(message: str) -> dict[str, bool]:
             "link senden",
         ),
         "third_party_instruction": (
-            "disuruh", "diminta", "instruksi", "instructed", "asked me", "arahan",
+            "disuruh", "menyuruh", "suruh", "diminta", "instruksi", "instructed",
+            "asked me", "told me to", "arahan",
             "me dijeron", "me pidió", "on m'a demandé", "aufgefordert",
         ),
         "credential_request": (
@@ -62,6 +64,26 @@ def candidate_facts(message: str) -> dict[str, bool]:
             "meminta kata sandi", "asked for my otp", "asked me for otp",
             "send your otp", "share your otp", "give me your otp",
             "asked for my pin", "asked for my password", "share your password",
+            "isi otp", "masukkan otp", "masukan otp", "dapat otp", "received an otp",
+        ),
+        "prize_scam": (
+            "dapat hadiah", "mendapat hadiah", "memenangkan hadiah", "menang hadiah",
+            "hadiah gratis", "hadiah undian", "prize winner", "won a prize",
+            "claim your prize", "free gift", "lucky draw",
+        ),
+        "authority_impersonation": (
+            "mengaku dari shopee", "mengaku pihak shopee", "mengaku dari tokopedia",
+            "mengaku dari bank", "mengaku petugas", "claims to be from shopee",
+            "claims to be from the bank", "claims to be customer service",
+        ),
+        "remote_guidance": (
+            "ikuti kata", "ikuti instruksi", "dipandu transfer", "dipandu melalui telepon",
+            "tetap di telepon", "jangan tutup telepon", "follow my instructions",
+            "stay on the phone", "guided me through the transfer",
+        ),
+        "link_click_instruction": (
+            "klik link", "klik tautan", "buka link", "buka tautan", "isi link",
+            "isi formulir", "click the link", "open the link", "fill in the form",
         ),
     }
     return {key: True for key, terms in groups.items() if any(term in text for term in terms)}
@@ -104,6 +126,21 @@ class DeterministicPlanner:
                 arguments={"incident_id": context["incident_id"]},
                 rationale="Status insiden authoritative berada di Core.",
             )
+        if context.get("intelligence_query"):
+            arguments = {
+                "query": context["intelligence_query"],
+                "deep_search": bool(context.get("deep_search", False)),
+                "context": context.get("fraud_context", {}),
+            }
+            if context.get("entity_type"):
+                arguments["entity_type"] = context["entity_type"]
+            return Plan(
+                intent=Intent.INTELLIGENCE_SEARCH,
+                selected_skill="intelligence-search",
+                selected_tool="intelligence_lookup",
+                arguments=arguments,
+                rationale="Identifier harus dinormalisasi dan dicari local-first oleh Core.",
+            )
         payment_fields = {"external_payment_id", "amount", "currency", "recipient_ref"}
         if payment_fields.intersection(context):
             missing = sorted(payment_fields - set(context))
@@ -130,9 +167,17 @@ class DeterministicPlanner:
         facts = candidate_facts(message)
         if facts or any(term in text for term in self.fraud_terms):
             core_context = {**context, **facts}
+            selected_skill = "fraud-detection"
+            if facts.get("suspicious_url") or facts.get("link_click_instruction"):
+                selected_skill = "malicious-url"
+            elif any(
+                facts.get(key)
+                for key in ("prize_scam", "authority_impersonation", "remote_guidance")
+            ):
+                selected_skill = "social-engineering"
             return Plan(
                 intent=Intent.FRAUD_ANALYSIS,
-                selected_skill="fraud-detection",
+                selected_skill=selected_skill,
                 selected_tool="fraud_analyze",
                 arguments={"context": core_context},
                 rationale="Narasi memiliki kandidat indikator yang perlu dinilai Core.",

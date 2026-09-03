@@ -60,6 +60,17 @@ class CapabilityInput(BaseModel):
     name: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
 
 
+class IntelligenceInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=3, max_length=2000)
+    entity_type: str | None = Field(
+        default=None,
+        pattern=r"^(PHONE|BANK_ACCOUNT|DOMAIN|URL|EMAIL|USERNAME|BRAND|MESSAGE)$",
+    )
+    deep_search: bool = False
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
 Executor = Callable[[dict[str, Any], str | None], Awaitable[dict[str, Any]]]
 
 
@@ -169,6 +180,16 @@ class ToolRegistry:
                     False,
                     False,
                     core.get_trace_audit,
+                ),
+                ToolDefinition(
+                    "intelligence_lookup",
+                    "Search tenant-scoped intelligence through Core",
+                    IntelligenceInput,
+                    "intelligence:search",
+                    True,
+                    False,
+                    False,
+                    core.intelligence_lookup,
                 ),
                 ToolDefinition(
                     "get_capability",

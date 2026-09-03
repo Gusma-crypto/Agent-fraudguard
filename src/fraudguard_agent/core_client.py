@@ -117,6 +117,13 @@ class CoreClient:
             "POST", f"{self.api_prefix}/fraud/analyze", arguments, trace_id=trace_id
         )
 
+    async def intelligence_lookup(
+        self, arguments: dict[str, Any], trace_id: str | None
+    ) -> dict[str, Any]:
+        return await self.request(
+            "POST", f"{self.api_prefix}/intelligence/search", arguments, trace_id=trace_id
+        )
+
     async def create_assessment(
         self, arguments: dict[str, Any], trace_id: str | None
     ) -> dict[str, Any]:
