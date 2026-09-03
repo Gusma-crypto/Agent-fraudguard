@@ -21,6 +21,22 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   memakai external Docker network `fraudguard-network` dengan alias
   `fraudguard-core-api` dan `fraudguard-agent`.
 
+## Perbaikan routing audit setelah intervensi - 2026-09-03
+
+- `intervention_result` dan `intervention_status` sekarang merupakan context sekali-pakai
+  agar runtime tidak mengulang submission non-idempotent pada turn berikutnya.
+- Permintaan eksplisit audit/trace diprioritaskan atas context intervensi yang tersisa.
+- Regression test mencakup urutan submit intervensi lalu audit dalam session yang sama.
+
+## Deteksi permintaan credential - 2026-09-03
+
+- Planner mengekstrak `credential_request=true` dari narasi permintaan OTP, password,
+  PIN, atau CVV tanpa menerima nilai credential.
+- Core menetapkan bobot `CREDENTIAL_REQUEST=70`, sehingga indikator tunggal memerlukan
+  `STEP_UP_VERIFY` dan kombinasi indikator dapat menghasilkan hold.
+- Skill dilarang mengganti decision/score Core atau menyatakan kepastian fraud sendiri;
+  saran keamanan universal harus disajikan terpisah dari keputusan authoritative.
+
 ## Security hardening — 2026-09-02
 
 - Deploy Core `deploy-vps.sh` sekarang gagal dengan exit code `1` jika `/ready` tidak

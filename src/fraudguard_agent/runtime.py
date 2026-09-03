@@ -18,6 +18,10 @@ FRAUD_ACTIONS = {
     "TEMPORARY_HOLD": "FRAUD_HOLD_ESCALATION",
 }
 
+# These fields authorize one non-idempotent intervention response. They may shape the
+# current plan, but must never become implicit input on a later conversation turn.
+ONE_SHOT_CONTEXT_KEYS = frozenset({"intervention_result", "intervention_status"})
+
 
 def extract_core_decision(data: dict[str, Any]) -> dict[str, Any]:
     policy = data.get("policy") if isinstance(data.get("policy"), dict) else {}
@@ -98,6 +102,8 @@ class AgentRuntime:
             session.known_facts[key] = CaseFact(value=value, source=FactSource.AGENT_INFERENCE)
         merged = {key: fact.value for key, fact in session.known_facts.items()}
         plan = self.planner.plan(message, merged)
+        for key in ONE_SHOT_CONTEXT_KEYS:
+            session.known_facts.pop(key, None)
         session.intent = plan.intent.value
         session.missing_facts = plan.missing_information
 

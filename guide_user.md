@@ -32,6 +32,15 @@ Respons chat dapat memuat `actions`. Nilai ini berarti intervensi protektif tela
 di FraudGuard Core; bukan berarti bank, wallet, akun, atau transaksi eksternal sudah
 diblokir atau dibatalkan.
 
+Hasil verifikasi intervensi hanya berlaku untuk satu turn. Setelah status selesai,
+permintaan audit dengan `trace_id` pada session yang sama membaca audit Core dan tidak
+mengirim ulang hasil verifikasi sebelumnya.
+
+Permintaan OTP, password, PIN, atau CVV diperlakukan sebagai indikator risiko tanpa
+mengumpulkan nilainya. Jangan pernah memasukkan nilai rahasia tersebut ke chat. Agent
+harus membedakan saran keamanan umum dari keputusan Core dan tidak boleh membuat vonis
+fraud sendiri ketika Core mengembalikan `ALLOW`.
+
 ## Bukti demo dan submission
 
 Sebelum merekam atau mengirim submission, ikuti `docs/SUBMISSION-CHECKLIST.md`. Jangan

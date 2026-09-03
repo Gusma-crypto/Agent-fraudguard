@@ -73,6 +73,24 @@ class FakeCore:
             },
         }
 
+    async def submit_intervention_response(
+        self, arguments: dict[str, Any], trace_id: str | None
+    ) -> dict[str, Any]:
+        self.calls.append("submit_intervention_response")
+        return {
+            "trace_id": trace_id or "00000000-0000-0000-0000-000000000001",
+            "data": {"status": arguments["status"]},
+        }
+
+    async def get_trace_audit(
+        self, arguments: dict[str, Any], trace_id: str | None
+    ) -> dict[str, Any]:
+        self.calls.append("get_trace_audit")
+        return {
+            "trace_id": trace_id or arguments["trace_id"],
+            "data": {"items": [{"action": "INTERVENTION_RESPONSE_RECORDED"}]},
+        }
+
 
 def make_runtime() -> tuple[AgentRuntime, SessionStore, FakeCore]:
     settings = Settings(fraudguard_core_api_key="test-core-key")
@@ -175,3 +193,32 @@ async def test_runtime_routes_and_replies_in_english_and_malay() -> None:
         assert result.language == language
         assert expected_text in result.message
         assert result.decision == "TEMPORARY_HOLD"
+
+
+@pytest.mark.asyncio
+async def test_intervention_response_is_one_shot_then_audit_routes_to_trace_tool() -> None:
+    runtime, sessions, core = make_runtime()
+    session = await sessions.create()
+    trace_id = "00000000-0000-0000-0000-000000000001"
+
+    completed = await runtime.chat(
+        session,
+        "Verifikasi selesai dan instruksi pihak ketiga terkonfirmasi",
+        {
+            "intervention_id": "00000000-0000-0000-0000-000000000012",
+            "intervention_result": {"third_party_instruction_confirmed": True},
+            "intervention_status": "COMPLETED",
+        },
+    )
+    audited = await runtime.chat(
+        session,
+        "Tampilkan audit untuk trace ini",
+        {"trace_id": trace_id},
+    )
+
+    assert completed.intent == "intervention_response"
+    assert audited.intent == "trace_lookup"
+    assert audited.tool_calls == ["get_trace_audit"]
+    assert core.calls == ["submit_intervention_response", "get_trace_audit"]
+    assert "intervention_result" not in session.known_facts
+    assert "intervention_status" not in session.known_facts

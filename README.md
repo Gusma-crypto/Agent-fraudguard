@@ -178,6 +178,15 @@ intervention, dan trace tetap berasal dari FraudGuard Core. Panduan credential, 
 intervention JSON, dan troubleshooting lengkap ada di
 [docs/OPENCLAW-INSTALL.md](docs/OPENCLAW-INSTALL.md).
 
+`intervention_result` dan `intervention_status` adalah context sekali-pakai. Setelah
+hasil tersebut dikirim ke Core, permintaan audit pada session yang sama diarahkan ke
+`get_trace_audit` dan tidak mengulang submission intervensi non-idempotent.
+
+Narasi yang meminta OTP, password, PIN, atau CVV menghasilkan indikator boolean
+`credential_request`; nilai credential tidak diterima atau diteruskan. Core memberi
+bobot risiko pada indikator tersebut. OpenClaw wajib mempertahankan decision/score Core
+dan tidak boleh mengubah `ALLOW` menjadi klaim fraud atau kepastian "100% penipuan".
+
 ### Membuat skill baru untuk pengguna awam
 
 `skill-creator` adalah helper development opsional, bukan skill pemeriksaan fraud

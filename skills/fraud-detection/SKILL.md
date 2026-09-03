@@ -8,7 +8,9 @@ metadata:
 # Fraud Detection
 
 Gunakan untuk impersonation, urgency, safe-account narrative, suspicious URL, phishing,
-dan scam. Candidate facts adalah inference agent, bukan fakta authoritative.
+permintaan OTP/password/PIN/CVV, dan scam. Candidate facts adalah inference agent, bukan
+fakta authoritative. Jangan meminta atau meneruskan nilai credential; hanya teruskan
+indikator boolean `credential_request` yang diekstrak Agent.
 
 Panggil `fraud_analyze`; jangan menghitung score, memilih policy, atau menuduh entity.
 Setelah respons valid, ikuti decision Core:
@@ -17,6 +19,14 @@ Setelah respons valid, ikuti decision Core:
 - `REVIEW`: buat intervensi `FRAUD_MANUAL_REVIEW`.
 - `STEP_UP_VERIFY`: buat intervensi `FRAUD_STEP_UP_VERIFICATION`.
 - `TEMPORARY_HOLD`: buat intervensi `FRAUD_HOLD_ESCALATION`.
+
+Keputusan, score, severity, dan status dari Core harus ditampilkan tanpa diubah. Jangan
+mengganti `ALLOW` menjadi vonis fraud/scam, jangan menyatakan kepastian seperti "100%
+penipuan", dan jangan menciptakan score sendiri. Saran universal seperti tidak membagikan
+OTP boleh diberikan sebagai pencegahan, tetapi harus jelas terpisah dari keputusan Core.
+Jika keputusan Core tampak tidak konsisten dengan narasi credential, pertahankan hasil
+Core, sarankan pengguna tidak membagikan credential, dan eskalasi untuk review—jangan
+membuat keputusan pengganti.
 
 Intervensi harus membawa assessment ID, policy decision ID, reason codes, trace ID, dan
 idempotency key dari workflow. Ini adalah pencatatan tindakan protektif di Core, bukan

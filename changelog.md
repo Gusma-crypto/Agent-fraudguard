@@ -4,6 +4,18 @@ All notable workspace, product, configuration, and documentation changes are rec
 
 ## Unreleased
 
+### Credential-request detection and authority wording - 2026-09-03
+
+- Added deterministic detection for narratives requesting OTP, password, PIN, or CVV without collecting credential values.
+- Hardened `fraud-detection` instructions so OpenClaw preserves Core decisions and never replaces `ALLOW` with an unsupported fraud verdict.
+- Added regression coverage for Indonesian and English credential-request narratives.
+
+### One-shot intervention context and audit routing - 2026-09-03
+
+- Prioritized explicit trace/audit requests over stale intervention context.
+- Made intervention result/status fields one-shot so later turns cannot replay a non-idempotent response implicitly.
+- Added planner and runtime regressions for intervention completion followed by audit lookup in one session.
+
 ### Unified root Docker operations - 2026-09-03
 
 - Consolidated Agent Docker deployment into `Docker/compose.yml` and removed duplicate local/production Compose files.

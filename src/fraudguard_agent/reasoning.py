@@ -55,6 +55,14 @@ def candidate_facts(message: str) -> dict[str, bool]:
             "disuruh", "diminta", "instruksi", "instructed", "asked me", "arahan",
             "me dijeron", "me pidió", "on m'a demandé", "aufgefordert",
         ),
+        "credential_request": (
+            "minta otp", "meminta otp", "minta kode otp", "meminta kode otp",
+            "kirim otp", "berikan otp", "minta pin", "meminta pin", "minta cvv",
+            "meminta cvv", "minta password", "meminta password", "minta kata sandi",
+            "meminta kata sandi", "asked for my otp", "asked me for otp",
+            "send your otp", "share your otp", "give me your otp",
+            "asked for my pin", "asked for my password", "share your password",
+        ),
     }
     return {key: True for key, terms in groups.items() if any(term in text for term in terms)}
 
@@ -68,6 +76,14 @@ class DeterministicPlanner:
 
     def plan(self, message: str, context: dict[str, Any]) -> Plan:
         text = message.lower()
+        if context.get("trace_id") and ("trace" in text or "audit" in text):
+            return Plan(
+                intent=Intent.TRACE_LOOKUP,
+                selected_skill="case-investigation",
+                selected_tool="get_trace_audit" if "audit" in text else "get_trace",
+                arguments={"trace_id": context["trace_id"]},
+                rationale="Riwayat authoritative harus dibaca dari Core.",
+            )
         if context.get("intervention_id") and context.get("intervention_result"):
             return Plan(
                 intent=Intent.INTERVENTION_RESPONSE,
@@ -87,14 +103,6 @@ class DeterministicPlanner:
                 selected_tool="get_incident",
                 arguments={"incident_id": context["incident_id"]},
                 rationale="Status insiden authoritative berada di Core.",
-            )
-        if context.get("trace_id") and ("trace" in text or "audit" in text):
-            return Plan(
-                intent=Intent.TRACE_LOOKUP,
-                selected_skill="case-investigation",
-                selected_tool="get_trace_audit" if "audit" in text else "get_trace",
-                arguments={"trace_id": context["trace_id"]},
-                rationale="Riwayat authoritative harus dibaca dari Core.",
             )
         payment_fields = {"external_payment_id", "amount", "currency", "recipient_ref"}
         if payment_fields.intersection(context):
