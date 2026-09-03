@@ -10,7 +10,7 @@ menandai deployment, video, artikel, atau submission sebagai selesai.
 - [x] FraudGuard Core terlihat berjalan sehat di organizer VPS (`api`, `worker`,
   `proxy`, dan PostgreSQL) berdasarkan terminal operator.
 - [ ] Image `fraudguard-ai-agent` terbaru berjalan dan `/ready` berhasil di VPS.
-- [ ] Tiga skill FraudGuard ditemukan dan dipakai oleh OpenClaw di VPS.
+- [ ] Enam skill FraudGuard ditemukan dan dipakai oleh OpenClaw di VPS.
 - [ ] Golden flow OpenClaw → Agent → Core → intervention → trace/audit direkam.
 - [ ] Regression suite versi source terbaru dijalankan dan outputnya disimpan.
 - [ ] Video, artikel, backup, URL publik, dan bukti submission tersedia.
@@ -57,6 +57,9 @@ docker run --rm fraudguard-core:test ruff check src tests migrations
 - [ ] `openclaw skills info fraud-detection` menemukan skill workspace.
 - [ ] `openclaw skills info safety-payment` menemukan skill workspace.
 - [ ] `openclaw skills info realtime-intervention` menemukan skill workspace.
+- [ ] `openclaw skills info intelligence-search` menemukan skill workspace.
+- [ ] `openclaw skills info social-engineering` menemukan skill workspace.
+- [ ] `openclaw skills info malicious-url` menemukan skill workspace.
 - [ ] OpenClaw menjalankan suspected-fraud turn dengan data sintetis.
 - [ ] Respons menunjukkan `selected_skill`, `tool_calls`, decision Core, `actions`, dan
   `trace_id`.

@@ -21,6 +21,12 @@ Fraud decision `REVIEW`, `STEP_UP_VERIFY`, atau `TEMPORARY_HOLD` memicu satu int
 protektif idempotent di Core. Agent tidak melakukan enforcement pada akun, pembayaran,
 atau sistem eksternal.
 
+Untuk intelligence satu identifier, kirim `context.intelligence_query`. Untuk satu pesan
+yang memuat beberapa indikator, kirim `context.intelligence_input` berisi `text` dan field
+opsional `phone`, `url`, `bank_account`, `email`, serta `transaction_context`. Agent
+meneruskan payload ini ke Core; Core melakukan extraction, routing provider, evidence,
+claim, risk, dan policy. Frontend/Agent harus membedakan observation, claim, dan decision.
+
 ## API
 
 - `POST /agent/v1/sessions`
@@ -107,7 +113,7 @@ sticky session saja tidak cukup untuk menjamin konsistensi saat failover.
 
 ## OpenClaw: install dan penggunaan cepat
 
-Setelah agent `/health` dan `/ready` berhasil, pasang tiga skill beserta CLI komunikasi:
+Setelah agent `/health` dan `/ready` berhasil, pasang enam skill beserta CLI komunikasi:
 
 ```bash
 chmod +x scripts/install_openclaw.sh scripts/fraudguard_agent_cli.py
@@ -116,6 +122,21 @@ openclaw skills info fraud-detection
 openclaw skills info safety-payment
 openclaw skills info realtime-intervention
 ```
+
+Setelah repository diperbarui, deploy Agent dan sinkronkan ulang skill ke workspace:
+
+```bash
+cd ~/Agent-fraudguard
+./deploy.sh update
+./scripts/install_openclaw.sh --force
+openclaw skills check
+openclaw tui --session fraudguard-demo-v2
+```
+
+Installer membuat backup versi sebelumnya di
+`<workspace>/.fraudguard-backups/<timestamp>/`. Buka session baru agar OpenClaw memuat
+snapshot skill terbaru. Panduan enam-skill, profile production, verifikasi CLI, dan
+troubleshooting tersedia di [docs/OPENCLAW-INSTALL.md](docs/OPENCLAW-INSTALL.md).
 
 CLI dipasang sebagai `<workspace>/tools/fraudguard-agent` dan hanya mengakses endpoint
 agent yang telah dibatasi. Siapkan path CLI dan periksa komunikasi:

@@ -4,6 +4,20 @@ All notable workspace, product, configuration, and documentation changes are rec
 
 ## Unreleased
 
+### Core Intelligence Provider Layer - 2026-09-04
+
+- Added bounded HTTPS JSON adapters for public-search and URL/domain reputation providers.
+- Added local-first deep-search orchestration, evidence-only persistence, provider failure audit,
+  provenance-backed signal reuse, and multi-source corroboration scoring.
+- Added provider endpoint configuration and regression coverage; external API credentials remain
+  in Core environment variables and are never exposed to Agent or frontend.
+
+### OpenClaw skill update guide - 2026-09-03
+
+- Added the VPS workflow for Agent update, safe forced skill synchronization, validation,
+  new-session refresh, profile-specific installation, and Gateway troubleshooting.
+- Corrected documentation from three to six production FraudGuard workspace skills.
+
 ### Scam-journey prevention and Intelligence routing - 2026-09-03
 
 - Added deterministic extraction for phishing link/credential chains and marketplace prize/payment social engineering.
@@ -210,3 +224,26 @@ All notable workspace, product, configuration, and documentation changes are rec
 - Hardened `scripts/release.sh` to require Python 3.11+ and support an explicit `PYTHON_BIN` interpreter.
 - Added a user-facing VPS/OpenClaw communication test tutorial covering safe fast-forward pull, backend deployment, plugin installation, and trace/audit verification.
 - Made `scripts/deploy_vps.sh` compatible with both Docker Compose v2 (`docker compose`) and legacy Compose v1 (`docker-compose`).
+## Core intelligence contract sync - 2026-09-04
+
+- Synced the Agent intelligence tool with Core's structured `input` envelope and optional query.
+- Added support for forwarding multi-entity input fields and transaction context to Core.
+- Agent now exposes Core `ingestion`, `routed_entities`, `provider_status`, and reassessment data.
+- Updated skill/tool guidance to keep observation, claim, risk, and policy decision separate.
+- Preserved Core as the only risk/policy authority; no provider key or local decision logic was added.
+
+## Frontend intelligence flow sync - 2026-09-04
+
+- Frontend Analyze now targets the Agent structured intelligence input contract.
+- Agent can create the Core-authorized intervention after an intelligence assessment,
+  not only after the direct fraud-analysis tool.
+- Agent response handling exposes ingestion, routed entities, provider status, claims,
+  evidence, risk, policy, and reassessment fields for the dashboard.
+
+## Frontend structure sync - 2026-09-04
+
+- Added App Router routes for Analyze, Dashboard, Intelligence, Incidents, Audit, and
+  Realtime Intervention.
+- Added shared FraudGuard components, typed models, query hooks, and API helpers under
+  `components/fraudguard`, `types`, `hooks`, and `lib`.
+- Analyze uses the shared `AnalyzeBox`; browser traffic remains same-origin through Agent.

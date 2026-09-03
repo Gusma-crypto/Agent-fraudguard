@@ -126,14 +126,16 @@ class DeterministicPlanner:
                 arguments={"incident_id": context["incident_id"]},
                 rationale="Status insiden authoritative berada di Core.",
             )
-        if context.get("intelligence_query"):
+        if context.get("intelligence_query") or context.get("intelligence_input"):
             arguments = {
-                "query": context["intelligence_query"],
+                "query": context.get("intelligence_query"),
                 "deep_search": bool(context.get("deep_search", False)),
                 "context": context.get("fraud_context", {}),
             }
             if context.get("entity_type"):
                 arguments["entity_type"] = context["entity_type"]
+            if context.get("intelligence_input"):
+                arguments["input"] = context["intelligence_input"]
             return Plan(
                 intent=Intent.INTELLIGENCE_SEARCH,
                 selected_skill="intelligence-search",

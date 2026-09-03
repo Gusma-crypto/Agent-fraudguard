@@ -175,7 +175,7 @@ class AgentRuntime:
         tool_calls = [plan.selected_tool]
         actions: list[ActionExecution] = []
         action_type = FRAUD_ACTIONS.get(str(decision.get("decision")))
-        if plan.selected_tool == "fraud_analyze" and action_type:
+        if plan.selected_tool in {"fraud_analyze", "intelligence_lookup"} and action_type:
             if len(tool_calls) >= self.settings.agent_max_tool_steps:
                 session.state = ConversationState.ESCALATED
                 return self._response(
@@ -190,7 +190,7 @@ class AgentRuntime:
                 "type": action_type,
                 "channel": session.channel.upper(),
                 "verification_context": {
-                    "assessment_id": data.get("id"),
+                    "assessment_id": data.get("assessment_id") or data.get("id"),
                     "policy_decision_id": (
                         data.get("policy", {}).get("id")
                         if isinstance(data.get("policy"), dict)
@@ -266,6 +266,16 @@ class AgentRuntime:
                         "sources",
                         "evidence",
                         "claims",
+                        "ingestion",
+                        "routed_entities",
+                        "provider_status",
+                        "reassessment",
+                        "intelligence_health",
+                        "skills_used",
+                        "recommended_action",
+                        "summary",
+                        "graph",
+                        "trace",
                     )
                 }
                 if plan.selected_tool == "intelligence_lookup"

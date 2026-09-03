@@ -12,6 +12,37 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - **Subkategori:** Cyber Security & Anti Scam.
 - **Prioritas:** P0 end-to-end sebelum P1 atau UI polish.
 
+## Core Intelligence Provider Layer - 2026-09-04
+
+- Core sekarang memiliki adapter nyata untuk Tavily, Exa, Brave (opsional), VirusTotal,
+  DNS resolver lokal, dan RDAP berbasis IANA bootstrap; adapter dipanggil hanya saat
+  `deep_search=true` dan intelligence lokal belum memiliki evidence.
+- Hasil eksternal divalidasi sebagai evidence `UNVERIFIED`, disimpan bersama source URL,
+  provider, trace, waktu retrieval, dan extractor version; provider tidak menentukan risk/policy.
+- Timeout/error provider diisolasi, dicatat ke audit, dan tidak menghasilkan evidence palsu.
+- Signal provider disimpan dalam provenance dan dapat dipakai ulang pada pencarian berikutnya;
+  `MULTIPLE_PUBLIC_REPORTS` hanya dibuat bila ada minimal dua source berbeda.
+- Endpoint provider dan API key dikonfigurasi di Core melalui `FRAUDGUARD_INTELLIGENCE_*`.
+  Belum ada vendor credential yang diaktifkan pada environment saat ini.
+- Validasi: 73 test lulus, Ruff lulus; mypy masih memiliki 4 error existing di webhook delivery.
+
+## Sinkronisasi Agent dengan Core Intelligence - 2026-09-04
+
+- `tools.py` menerima legacy `query` maupun structured `input`.
+- `reasoning.py` meneruskan `context.intelligence_input` untuk pesan dengan banyak entity.
+- `runtime.py` meneruskan field pipeline Core untuk ditampilkan pada response Agent.
+- Skill dan tool contract menjelaskan batas `OBSERVATION → CLAIM → DECISION`.
+- API key provider tetap hanya berada di Core; Agent tidak menyimpan vendor key.
+- Validasi runtime resmi Python 3.12 dan full integration deployment masih perlu dijalankan.
+
+## Sinkronisasi Frontend - 2026-09-04
+
+- Frontend aktif berada di root `frontend/`, sesuai build context Compose Core.
+- Analyze mengirim `context.intelligence_input` ke Agent melalui same-origin `/agent/v1/chat`.
+- UI menampilkan observation/evidence, claim, risk, dan policy sebagai lapisan terpisah.
+- Frontend tidak menerima Core API key, Agent key, vendor key, atau akses PostgreSQL.
+- Node syntax check berhasil; Docker/browser integration masih pending runtime deployment.
+
 ## Deployment Docker terpadu - 2026-09-03
 
 - Artifact Agent aktif sekarang adalah `Docker/Dockerfile` dan `Docker/compose.yml`.
@@ -36,6 +67,14 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - Optional thumbnail URLs remain external HTTPS references; bounded archived excerpts and
   hashes provide durable fallback context without treating an unverified report as truth.
 - Regression coverage includes link/form/OTP and marketplace prize/transfer narratives.
+
+## Update skill OpenClaw - 2026-09-03
+
+- Setelah `./deploy.sh update`, sinkronkan workspace dengan
+  `./scripts/install_openclaw.sh --force`.
+- Installer mem-backup versi berbeda sebelum menyalin enam skill dan CLI terbaru.
+- Jalankan `openclaw skills check` dan buka session baru; restart Gateway hanya bila
+  watcher atau environment credential belum diperbarui.
 
 ## Perbaikan routing audit setelah intervensi - 2026-09-03
 
@@ -72,7 +111,8 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 - FraudGuard adalah anti-scam payment intervention agent, bukan hanya transaction-anomaly dashboard.
 - OpenClaw/native runtime bertindak sebagai harness agent; Policy Engine di `logic-backend-server` adalah final authority.
-- Gunakan satu orchestrator dengan tiga skill: `fraud-detection`, `safety-payment`, dan `realtime-intervention`.
+- Gunakan satu orchestrator dengan enam skill: `fraud-detection`, `safety-payment`,
+  `realtime-intervention`, `intelligence-search`, `social-engineering`, dan `malicious-url`.
 - Seluruh payment action adalah sandbox/simulasi, bukan integrasi bank nyata.
 - `Report != Evidence != Verified Fact != Fraud Confirmation`.
 - Session memory agent bersifat in-memory dan non-authoritative; learning/experience authoritative berada di Core.
@@ -102,7 +142,7 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - `docs/SUBMISSION-CHECKLIST.md` sekarang memisahkan kesiapan source, bukti VPS/OpenClaw,
   acceptance golden demo, keamanan artefak, video, artikel, dan final submission.
 - Berdasarkan terminal operator, Core (`api`, `worker`, `proxy`, PostgreSQL) sudah sehat
-  di VPS. Agent image terbaru dan eksekusi tiga skill melalui OpenClaw belum terbukti.
+  di VPS. Agent image terbaru dan eksekusi enam skill melalui OpenClaw belum terbukti.
 - Test source saat ini berisi 15 test agent dan 33 fungsi test Core. Regression agent
   terbaru lulus `15 passed in 1.57s` dan Ruff lulus untuk `src tests scripts`; regression
   Core terbaru tetap harus dijalankan dan outputnya disimpan sebelum submit.
@@ -111,7 +151,7 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 ## Installer OpenClaw dan CLI komunikasi — 2026-09-02
 
-- `scripts/install_openclaw.sh` memasang tiga skill dan client ke workspace yang dibaca
+- `scripts/install_openclaw.sh` memasang enam skill dan client ke workspace yang dibaca
   dari OpenClaw CLI atau diberikan lewat `--workspace`/`--profile`/`--dev`.
 - Konflik tidak ditimpa secara default; `--force` membuat backup di workspace sebelum
   replacement. Installer tidak menulis secret dan tidak mengubah system `PATH`.
@@ -121,13 +161,13 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   `600`. Skill dilarang fallback ke `curl`, generic HTTP, atau policy lokal.
 - Test integrasi mencakup authenticated structured chat, penolakan HTTP non-loopback,
   idempotent install, conflict preservation, dan recoverable force backup.
-- Installer telah diverifikasi pada workspace OpenClaw lokal terisolasi: ketiga skill
+- Installer telah diverifikasi pada workspace OpenClaw lokal terisolasi: seluruh skill
   terdeteksi sebagai workspace skill, eligible, dan instalasi ulang tidak mengubah file.
   Pembuktian yang sama pada workspace OpenClaw VPS tetap pending.
 - Target Docker test membawa skill source agar perilaku installer ikut diuji, sementara
   target runtime produksi tetap hanya berisi package agent.
 - `skills/skill-creator/SKILL.md` menyediakan workflow pembuatan/validasi skill dengan
-  bahasa sederhana. Instalasinya opt-in melalui `--with-creator`; tiga skill operasional
+  bahasa sederhana. Instalasinya opt-in melalui `--with-creator`; enam skill operasional
   tetap menjadi default agar surface produksi tidak bertambah.
 - Runtime chat kini menegosiasikan `en`, `id`, atau `ms`, mengembalikan language code,
   dan melokalkan pesan safety/failure tanpa menerjemahkan decision atau trace Core.
@@ -303,7 +343,7 @@ Area yang berubah:
 
 Keputusan:
 
-- Tetap gunakan satu OpenClaw orchestrator dengan tiga skill; tidak ada frontend agent kedua.
+- Tetap gunakan satu OpenClaw orchestrator dengan enam skill; tidak ada frontend agent kedua.
 - Upload ke OpenClaw hanya ZIP hasil exporter, bukan repository lengkap.
 - Docker menerima hanya `pyproject.toml`, `src/fraudguard/`, `database/`, `policy/`, dan `schemas/`.
 - Host OpenClaw berkomunikasi ke container melalui named operations dan API loopback; API key tetap di environment.
@@ -375,6 +415,14 @@ Tidak ada dokumen yang dihapus permanen. Semua sumber superseded tetap tersedia 
 3. Build/jalankan `docker compose -f Docker/compose.yaml` dengan `FRAUDGUARD_API_KEY`, lalu uji `/health` dan `/ready` pada loopback.
 4. Upload bundle dan plugin OpenClaw, daftarkan tujuh operasi serta guard ekuivalen, lalu jalankan E3/E7/E8 pada Gateway VPS sebelum menyebut OpenClaw aktif.
 5. Tambahkan reverse proxy, UI demo minimum, backup, dan bukti video setelah adapter stabil.
+
+## Sinkronisasi struktur frontend - 2026-09-04
+
+Frontend mengikuti struktur Next.js yang disepakati: route di `frontend/app`, komponen reusable
+di `frontend/components/fraudguard`, tipe di `frontend/types`, hook di `frontend/hooks`, dan
+integrasi HTTP di `frontend/lib`. Analyze sudah memakai komponen shared dan kontrak Agent/Core.
+Route operasional lain tersedia sebagai entry point; endpoint listing dashboard/incidents/audit
+masih perlu dihubungkan saat API operasionalnya diaktifkan.
 - Memulihkan package `src/fraudguard/memory/` yang sebelumnya direferensikan runtime tetapi tidak ada: repository JSON atomic, repository SQLite WAL/transactional, retrieval masked/bounded, confidence helper, dan package export.
 - Validasi Python 3.11 lulus 34/34 test dan smoke flow lulus. Verifikasi container production juga lulus readiness, API key, audit, restart/idempotency, SQLite integrity, dan backup; validasi Python 3.12 dijalankan melalui image dengan API key sintetis.
 - `scripts/release.sh` sekarang memvalidasi versi Python dan menerima `PYTHON_BIN`, sehingga host dengan `python3` 3.10 tidak gagal secara ambigu.

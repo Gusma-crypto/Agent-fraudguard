@@ -1,6 +1,6 @@
 # Instalasi dan Penggunaan FraudGuard di OpenClaw
 
-Integrasi terdiri dari tiga workspace skill dan satu CLI komunikasi terikat:
+Integrasi terdiri dari enam workspace skill dan satu CLI komunikasi terikat:
 
 ```text
 OpenClaw skill → tools/fraudguard-agent → FraudGuard Agent API → FraudGuard Core
@@ -42,6 +42,63 @@ Untuk workspace atau profile tertentu:
 Installer aman dijalankan ulang. File berbeda tidak ditimpa kecuali `--force`; mode
 tersebut memindahkan versi lama ke `.fraudguard-backups/<timestamp>/` di workspace.
 
+## Memperbarui skill setelah repository di-update
+
+Setelah perubahan Agent sudah di-push, jalankan langkah berikut pada VPS:
+
+```bash
+cd ~/Agent-fraudguard
+./deploy.sh update
+./scripts/install_openclaw.sh --force
+```
+
+`deploy.sh update` melakukan fast-forward pull, build ulang image, dan restart Agent.
+Installer kemudian menyalin versi terbaru dari keenam skill dan CLI komunikasi ke
+workspace OpenClaw. `--force` tidak langsung menghapus versi lama: file yang berbeda
+dipindahkan terlebih dahulu ke:
+
+```text
+<openclaw-workspace>/.fraudguard-backups/<timestamp>/
+```
+
+Verifikasi semua skill dan koneksi Agent:
+
+```bash
+openclaw skills info fraud-detection
+openclaw skills info safety-payment
+openclaw skills info realtime-intervention
+openclaw skills info intelligence-search
+openclaw skills info social-engineering
+openclaw skills info malicious-url
+openclaw skills check
+
+OPENCLAW_WORKSPACE="$(openclaw config get agents.defaults.workspace | tr -d '"')"
+FRAUDGUARD_CLI="$OPENCLAW_WORKSPACE/tools/fraudguard-agent"
+"$FRAUDGUARD_CLI" health
+"$FRAUDGUARD_CLI" ready
+```
+
+Keluar dari session lama dengan `Ctrl+C`, kemudian buka session baru supaya snapshot
+skill dimuat ulang:
+
+```bash
+openclaw tui --session fraudguard-demo-v2
+```
+
+Restart Gateway hanya jika skill masih belum muncul atau environment credential berubah:
+
+```bash
+openclaw gateway restart
+openclaw status
+```
+
+Untuk profile tertentu, gunakan profile yang sama saat install dan verifikasi:
+
+```bash
+./scripts/install_openclaw.sh --profile production --force
+openclaw --profile production skills check
+```
+
 ## Credential agent
 
 Jika `AGENT_ACCESS_KEY` aktif pada service agent, simpan nilai yang sama di luar
@@ -67,6 +124,9 @@ Gateway agar environment baru terbaca.
 openclaw skills info fraud-detection
 openclaw skills info safety-payment
 openclaw skills info realtime-intervention
+openclaw skills info intelligence-search
+openclaw skills info social-engineering
+openclaw skills info malicious-url
 openclaw skills check
 ```
 
@@ -88,7 +148,7 @@ openclaw skills info skill-creator
 
 Contoh chat: `Buat skill dari capability fraud-detection v1.` Helper ini memverifikasi
 capability dan hanya membuat draft/file jika runtime mempunyai izin workspace. Jangan
-pasang dengan `--with-creator` pada workspace produksi yang hanya membutuhkan tiga skill
+pasang dengan `--with-creator` pada workspace produksi yang hanya membutuhkan enam skill
 operasional.
 
 Uji CLI tanpa model dan simpan path untuk command berikutnya:

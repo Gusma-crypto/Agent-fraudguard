@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .core_client import CoreClient
 from .models import PaymentInput
@@ -60,15 +60,32 @@ class CapabilityInput(BaseModel):
     name: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
 
 
+class IntelligenceEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=3, max_length=10_000)
+    phone: str | None = Field(default=None, max_length=40)
+    url: str | None = Field(default=None, max_length=2000)
+    bank_account: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=320)
+    transaction_context: dict[str, Any] = Field(default_factory=dict)
+
+
 class IntelligenceInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    query: str = Field(min_length=3, max_length=2000)
+    query: str | None = Field(default=None, min_length=3, max_length=2000)
     entity_type: str | None = Field(
         default=None,
         pattern=r"^(PHONE|BANK_ACCOUNT|DOMAIN|URL|EMAIL|USERNAME|BRAND|MESSAGE)$",
     )
     deep_search: bool = False
     context: dict[str, Any] = Field(default_factory=dict)
+    input: IntelligenceEnvelope | None = None
+
+    @model_validator(mode="after")
+    def require_query_or_input(self) -> "IntelligenceInput":
+        if self.query is None and self.input is None:
+            raise ValueError("query or input is required")
+        return self
 
 
 Executor = Callable[[dict[str, Any], str | None], Awaitable[dict[str, Any]]]

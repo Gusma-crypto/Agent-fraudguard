@@ -50,6 +50,9 @@ intervensi yang diotorisasi Core; pencatatan itu tidak membatalkan transaksi eks
 Lookup nomor/rekening/domain dapat diberikan sebagai context non-rahasia
 `intelligence_query`. Status `UNVERIFIED`, `INSUFFICIENT_INTELLIGENCE`, atau
 `PENDING_AGENT_DISCOVERY` berarti bukti belum cukup—bukan berarti aman atau pasti fraud.
+Jika Core dikonfigurasi dengan provider berlisensi, `deep_search=true` akan meminta Core
+menjalankan provider public-search atau URL/domain; kegagalan provider ditampilkan sebagai
+status provider dan tidak dianggap sebagai bukti aman maupun bukti fraud.
 Untuk setiap hasil lookup, periksa bagian `intelligence.sources` dan
 `intelligence.evidence`. Bila data tersedia, Agent menampilkan URL HTTPS sumber,
 metode akses, waktu observasi, ringkasan, confidence, dan status verifikasinya. Bila
@@ -69,9 +72,14 @@ audit Core yang sama.
 ## OpenClaw dan CLI
 
 Operator dapat memasang integrasi dengan `./scripts/install_openclaw.sh`. Setelah itu,
-OpenClaw menggunakan tiga skill workspace dan CLI `<workspace>/tools/fraudguard-agent`
+OpenClaw menggunakan enam skill workspace dan CLI `<workspace>/tools/fraudguard-agent`
 untuk berkomunikasi dengan API agent. Instruksi instalasi, key file mode `600`, contoh
 chat, payment, dan intervention tersedia di `docs/OPENCLAW-INSTALL.md`.
+
+Sesudah update repository di VPS, jalankan `./deploy.sh update`, kemudian
+`./scripts/install_openclaw.sh --force`, `openclaw skills check`, dan buka session baru.
+Installer menyimpan skill lama dalam `.fraudguard-backups/<timestamp>` sehingga update
+dapat diaudit dan dipulihkan secara manual bila diperlukan.
 
 Untuk belajar membuat skill, jalankan installer dengan `--with-creator`, buka session
 OpenClaw baru, lalu tulis misalnya `Buat skill dari capability fraud-detection v1`.
@@ -86,6 +94,35 @@ OpenClaw.
 Production saat ini harus memakai satu replica karena session conversation disimpan
 in-memory dengan TTL. Untuk horizontal scaling, tambahkan shared Redis session store
 dengan TTL dan locking/version check; sticky session saja tidak cukup saat failover.
+
+## Intelligence multi-entity
+
+Untuk memeriksa satu pesan yang berisi beberapa entity, kirim melalui
+`context.intelligence_input`:
+
+```json
+{
+  "text": "Nomor ini mengaku saya menang hadiah dan meminta transfer Rp3 juta.",
+  "phone": "+6281234567890",
+  "bank_account": "BCA 1234-5678-90",
+  "transaction_context": {"recipient_is_new": true}
+}
+```
+
+Agent meneruskan input ke Core. `ingestion` dan `routed_entities` menjelaskan entity yang
+diproses, `evidence` berisi observation, `claims` berisi pernyataan terstruktur, sedangkan
+`risk` dan `policy` adalah keputusan authoritative Core. Jangan menyamakan evidence dengan
+claim terverifikasi atau keputusan.
+
+Jika intervention dijawab dengan fakta typed, Core mengembalikan `reassessment`. Tampilkan
+hasil reassessment terbaru dan jangan menyimpan hasil verifikasi sebagai fakta permanen di
+session Agent.
+
+Dashboard web terpadu memakai halaman Analyze sebagai entry point. Data yang ditampilkan
+mengikuti urutan `ingestion → entities → provider status → evidence → claims → risk →
+policy`. Jika Core mengembalikan keputusan non-ALLOW, Agent dapat menampilkan intervention
+yang diotorisasi Core; dashboard tidak mengklaim bahwa rekening atau transaksi bank nyata
+telah diblokir.
 
 Routing fraud/payment juga mengenali indikator dasar English, Indonesian, Malay, Spanish,
 French, dan German. Untuk bahasa lain, respons akan fallback ke English sampai provider
