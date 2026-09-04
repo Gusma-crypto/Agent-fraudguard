@@ -307,7 +307,7 @@ async def test_phishing_journey_returns_immediate_stop_guidance() -> None:
         {},
     )
 
-    assert result.selected_skill == "malicious-url"
+    assert result.selected_skill == "fraud-detection"
     assert "Tutup halaman" in result.message
     assert "jangan gunakan atau bagikan OTP" in result.message
 

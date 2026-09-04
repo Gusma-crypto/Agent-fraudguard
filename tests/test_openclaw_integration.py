@@ -108,10 +108,27 @@ def test_installer_is_idempotent_and_preserves_conflicts(tmp_path: Path) -> None
     command = ["bash", str(INSTALLER), "--workspace", str(workspace)]
     first = subprocess.run(command, capture_output=True, text=True, check=False)
     assert first.returncode == 0, first.stderr
+    for root_file in (
+        "AGENTS.md",
+        "SOUL.md",
+        "IDENTITY.md",
+        "TOOLS.md",
+        "MANIFEST.md",
+        "USER.md",
+        "HEARTBEAT.md",
+    ):
+        assert (workspace / root_file).is_file()
+    runtime_contract = (workspace / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Select exactly one primary skill per turn" in runtime_contract
+    assert "at most one primary Core assessment" in runtime_contract
+    assert "Do not invoke the CLI `chat` subcommand" in runtime_contract
+    assert "intelligence proves neither safety nor fraud" in runtime_contract
     assert (workspace / "skills/fraud-detection/SKILL.md").is_file()
+    assert (workspace / "skills/safety-payment/SKILL.md").is_file()
+    assert (workspace / "skills/realtime-intervention/SKILL.md").is_file()
     assert (workspace / "skills/intelligence-search/SKILL.md").is_file()
     assert (workspace / "skills/social-engineering/SKILL.md").is_file()
-    assert (workspace / "skills/malicious-url/SKILL.md").is_file()
+    assert not (workspace / "skills/malicious-url").exists()
     assert not (workspace / "skills/skill-creator").exists()
     bridge = workspace / "tools/fraudguard-agent"
     assert bridge.is_file()
@@ -132,6 +149,23 @@ def test_installer_is_idempotent_and_preserves_conflicts(tmp_path: Path) -> None
     backups = list((workspace / ".fraudguard-backups").glob("*/skills/fraud-detection/SKILL.md"))
     assert len(backups) == 1
     assert backups[0].read_text(encoding="utf-8") == "local customization\n"
+
+    retired = workspace / "skills/malicious-url"
+    retired.mkdir(parents=True)
+    (retired / "SKILL.md").write_text("old overlap\n", encoding="utf-8")
+    retirement = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert retirement.returncode == 1
+    forced_retirement = subprocess.run(
+        [*command, "--force"], capture_output=True, text=True, check=False
+    )
+    assert forced_retirement.returncode == 0, forced_retirement.stderr
+    retired_backups = list(
+        (workspace / ".fraudguard-backups").glob(
+            "*/retired/skills/malicious-url/SKILL.md"
+        )
+    )
+    assert len(retired_backups) == 1
+    assert not retired.exists()
 
     creator_workspace = tmp_path / "creator-workspace"
     creator = subprocess.run(

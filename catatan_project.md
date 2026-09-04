@@ -12,6 +12,55 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - **Subkategori:** Cyber Security & Anti Scam.
 - **Prioritas:** P0 end-to-end sebelum P1 atau UI polish.
 
+## Dedicated OpenClaw runtime workspace - 2026-09-04
+
+- `openclaw-workspace/` sekarang menjadi sumber tunggal untuk tujuh file kontrak root
+  yang dipasang ke `/root/.openclaw/workspace-fraudguard`.
+- Runtime produksi memakai lima skill dengan satu primary skill per turn. Tiga protection
+  skill tetap terlihat sebagai capability produk; `social-engineering` dan
+  `intelligence-search` menangani routing khusus tanpa membuat keputusan sendiri.
+- `malicious-url` dipensiunkan dari runtime: perilaku link/login/OTP masuk
+  `fraud-detection`, sedangkan lookup reputasi URL/domain masuk `intelligence-search`.
+- Installer menyimpan konflik dan skill lama sebagai backup yang dapat dipulihkan,
+  memasang file root mode `600` dan CLI mode `700`, serta tidak mengubah config global,
+  credential, memory, atau file buatan operator.
+- Komponen berubah: template workspace, installer, lima kontrak skill, Bridge allowlist,
+  fallback planner/runtime, regression test, README, user guide, dan install guide.
+- Runtime `AGENTS.md` mengadopsi bagian terbaik dari referensi operator: integritas field
+  Core, maksimum satu primary assessment per turn, anti-duplikasi, evidence kosong bukan
+  bukti aman/fraud, isolasi session/memory, read-only case runtime, dan format hasil.
+  Aturan heartbeat proaktif, self-modification, dan pemanggilan CLI `chat` tidak diambil
+  karena bertentangan dengan boundary produksi.
+- Validasi lokal final: 41 test lulus, Ruff bersih, Python compile berhasil, shell syntax
+  valid, installer idempotent, dan `git diff --check` bersih.
+- Risiko tersisa: binding agent `fraudguard` ke workspace dan panggilan model nyata harus
+  diverifikasi pada VPS; kegagalan provider/model harus tetap terlihat dan fail closed.
+
+## OpenClaw-only orchestration bridge - 2026-09-04
+
+- Frontend `/agent/v1/chat` sekarang ditargetkan ke service `bridge` yang meneruskan turn
+  ke endpoint private OpenClaw `/v1/responses`; alias Docker publik tetap `fraudguard-agent`.
+- Service `agent` menjadi bounded tool adapter. Endpoint
+  `/agent/v1/tools/{tool_name}/execute` memvalidasi input melalui registry yang sudah ada
+  dan meneruskan hanya typed tool allowlist ke Core.
+- CLI workspace memiliki `tool-execute`; lima skill operasional tidak lagi memakai
+  subcommand `chat`, sehingga planner native tidak berada pada jalur OpenClaw.
+- Core tetap satu-satunya authority untuk evidence/risk/policy/decision. Bridge tidak
+  mengarang field yang tidak dikembalikan OpenClaw/Core.
+- Validasi lokal mencakup compile, unit contract bridge, frontend build, dan Compose parse;
+  aktivasi endpoint OpenResponses serta real Gateway call tetap harus diverifikasi di VPS.
+- Hardening tambahan: skill/input routing hint di Bridge telah di-allowlist, `/tools`
+  mengembalikan 503 saat Gateway gagal, dan tool payload menolak credential sensitif.
+- Frontend utama sekarang memberi label OpenClaw sebagai orchestrator, menyimpan session
+  OpenClaw per browser tab, dan hanya menampilkan tahap proses generik pada progress ringkas.
+- Jalur browser menggunakan client function tools dari Bridge agar tidak bergantung pada
+  network sandbox OpenClaw. Hanya hasil Core yang boleh mengisi risk/policy/evidence/trace;
+  output model tanpa Core result dipaksa menjadi `UNKNOWN`/`PENDING` (fail closed).
+- Gateway host harus bind `custom` ke private Docker host-gateway agar service Bridge bisa
+  mengakses port 18789; port tersebut tidak boleh dibuka di firewall publik.
+- Validasi lokal: 40 test Python, Ruff, Python compile, shell syntax, Compose parse,
+  TypeScript production build, dan whitespace diff lulus melalui test image Docker.
+
 ## Core Intelligence Provider Layer - 2026-09-04
 
 - Core sekarang memiliki adapter nyata untuk Tavily, Exa, Brave (opsional), VirusTotal,
@@ -56,8 +105,8 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 - Planner extracts link-click, credential, prize, authority-impersonation, payment, and
   remote-guidance candidate facts without carrying secret values.
-- New skills: `malicious-url`, `social-engineering`, and `intelligence-search`; installer
-  includes all three by default.
+- Routing specialization tersedia melalui `social-engineering` dan
+  `intelligence-search`; source `malicious-url` lama tidak lagi dipasang secara default.
 - Explicit lookup is bounded to Core `POST /api/v1/intelligence/search`; Agent still has
   no generic HTTP, SQL, filesystem, or shell tool.
 - Unknown deep searches remain `PENDING_AGENT_DISCOVERY` until an allowlisted public
@@ -72,7 +121,8 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 - Setelah `./deploy.sh update`, sinkronkan workspace dengan
   `./scripts/install_openclaw.sh --force`.
-- Installer mem-backup versi berbeda sebelum menyalin enam skill dan CLI terbaru.
+- Installer mem-backup versi berbeda sebelum menyalin tujuh root contract, lima skill,
+  dan CLI terbaru.
 - Jalankan `openclaw skills check` dan buka session baru; restart Gateway hanya bila
   watcher atau environment credential belum diperbarui.
 
@@ -111,8 +161,8 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 - FraudGuard adalah anti-scam payment intervention agent, bukan hanya transaction-anomaly dashboard.
 - OpenClaw/native runtime bertindak sebagai harness agent; Policy Engine di `logic-backend-server` adalah final authority.
-- Gunakan satu orchestrator dengan enam skill: `fraud-detection`, `safety-payment`,
-  `realtime-intervention`, `intelligence-search`, `social-engineering`, dan `malicious-url`.
+- Gunakan satu orchestrator dengan lima skill: `fraud-detection`, `safety-payment`,
+  `realtime-intervention`, `intelligence-search`, dan `social-engineering`.
 - Seluruh payment action adalah sandbox/simulasi, bukan integrasi bank nyata.
 - `Report != Evidence != Verified Fact != Fraud Confirmation`.
 - Session memory agent bersifat in-memory dan non-authoritative; learning/experience authoritative berada di Core.
@@ -142,7 +192,7 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - `docs/SUBMISSION-CHECKLIST.md` sekarang memisahkan kesiapan source, bukti VPS/OpenClaw,
   acceptance golden demo, keamanan artefak, video, artikel, dan final submission.
 - Berdasarkan terminal operator, Core (`api`, `worker`, `proxy`, PostgreSQL) sudah sehat
-  di VPS. Agent image terbaru dan eksekusi enam skill melalui OpenClaw belum terbukti.
+  di VPS. Agent image terbaru dan eksekusi lima skill melalui OpenClaw belum terbukti.
 - Test source saat ini berisi 15 test agent dan 33 fungsi test Core. Regression agent
   terbaru lulus `15 passed in 1.57s` dan Ruff lulus untuk `src tests scripts`; regression
   Core terbaru tetap harus dijalankan dan outputnya disimpan sebelum submit.
@@ -151,7 +201,8 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 ## Installer OpenClaw dan CLI komunikasi — 2026-09-02
 
-- `scripts/install_openclaw.sh` memasang enam skill dan client ke workspace yang dibaca
+- `scripts/install_openclaw.sh` memasang tujuh root contract, lima skill, dan client ke
+  workspace yang dibaca
   dari OpenClaw CLI atau diberikan lewat `--workspace`/`--profile`/`--dev`.
 - Konflik tidak ditimpa secara default; `--force` membuat backup di workspace sebelum
   replacement. Installer tidak menulis secret dan tidak mengubah system `PATH`.
@@ -167,7 +218,7 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - Target Docker test membawa skill source agar perilaku installer ikut diuji, sementara
   target runtime produksi tetap hanya berisi package agent.
 - `skills/skill-creator/SKILL.md` menyediakan workflow pembuatan/validasi skill dengan
-  bahasa sederhana. Instalasinya opt-in melalui `--with-creator`; enam skill operasional
+  bahasa sederhana. Instalasinya opt-in melalui `--with-creator`; lima skill operasional
   tetap menjadi default agar surface produksi tidak bertambah.
 - Runtime chat kini menegosiasikan `en`, `id`, atau `ms`, mengembalikan language code,
   dan melokalkan pesan safety/failure tanpa menerjemahkan decision atau trace Core.
@@ -343,7 +394,7 @@ Area yang berubah:
 
 Keputusan:
 
-- Tetap gunakan satu OpenClaw orchestrator dengan enam skill; tidak ada frontend agent kedua.
+- Tetap gunakan satu OpenClaw orchestrator dengan lima skill; tidak ada frontend agent kedua.
 - Upload ke OpenClaw hanya ZIP hasil exporter, bukan repository lengkap.
 - Docker menerima hanya `pyproject.toml`, `src/fraudguard/`, `database/`, `policy/`, dan `schemas/`.
 - Host OpenClaw berkomunikasi ke container melalui named operations dan API loopback; API key tetap di environment.

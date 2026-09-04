@@ -4,6 +4,36 @@ All notable workspace, product, configuration, and documentation changes are rec
 
 ## Unreleased
 
+### Dedicated OpenClaw runtime workspace - 2026-09-04
+
+- Added managed production templates for `AGENTS.md`, `SOUL.md`, `IDENTITY.md`,
+  `TOOLS.md`, `MANIFEST.md`, `USER.md`, and `HEARTBEAT.md`.
+- Reduced the production runtime to five non-overlapping skills; deprecated
+  `malicious-url` in favor of behavioral `fraud-detection` and explicit
+  `intelligence-search` routing.
+- Hardened workspace installation with conflict backups, recoverable retirement of the
+  stale skill, restrictive file modes, and no implicit global OpenClaw configuration changes.
+- Aligned Bridge and deterministic fallback routing with the five-skill contract.
+- Expanded the deployed `AGENTS.md` with Core-result integrity, single-assessment loop
+  prevention, evidence/session/memory rules, runtime file protection, fail-closed output,
+  and safe user-facing presentation guidance.
+
+### OpenClaw-only orchestration bridge - 2026-09-04
+
+- Added a private OpenResponses bridge that preserves the frontend `/agent/v1/chat`
+  contract while routing every public analysis turn through OpenClaw Gateway.
+- Added a direct allowlisted typed-tool endpoint and CLI `tool-execute` command so
+  OpenClaw skills reach Core without invoking the native planner a second time.
+- Split Docker services into a private tool adapter and the public `fraudguard-agent`
+  bridge alias; added OpenClaw Gateway URL/token/agent configuration.
+- Updated all five operational skills to use direct typed tools and added bridge contract tests.
+- Allowlisted browser routing hints, made bridge readiness fail closed, exposed OpenClaw
+  identity to the frontend, and replaced provider names in compact progress with process stages.
+- Added an OpenResponses client-tool loop with schema validation, duplicate-call reuse,
+  bounded steps, and Core-authoritative response overriding; CLI is now a TUI/admin fallback.
+- Documented a custom private Docker-host Gateway bind so Bridge access does not require
+  exposing the OpenClaw operator endpoint on `0.0.0.0` or the public firewall.
+
 ### Core Intelligence Provider Layer - 2026-09-04
 
 - Added bounded HTTPS JSON adapters for public-search and URL/domain reputation providers.

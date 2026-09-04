@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     agent_session_ttl_seconds: int = Field(default=3600, ge=60, le=86_400)
     agent_replicas: int = Field(default=1, ge=1, le=20)
     agent_cors_origins: str = "http://localhost:3000"
+    openclaw_gateway_url: str = "http://host.docker.internal:18789"
+    openclaw_gateway_token: str = ""
+    openclaw_agent_id: str = "main"
+    openclaw_timeout_seconds: float = Field(default=60, gt=0, le=180)
 
     @property
     def production(self) -> bool:
@@ -33,14 +37,22 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production(self) -> "Settings":
         if self.production:
-            if not self.fraudguard_core_base_url.startswith("https://"):
-                raise ValueError("FRAUDGUARD_CORE_BASE_URL must use HTTPS in production")
+            internal_core = self.fraudguard_core_base_url.startswith(
+                "http://fraudguard-core-api:"
+            )
+            if not self.fraudguard_core_base_url.startswith("https://") and not internal_core:
+                raise ValueError(
+                    "FRAUDGUARD_CORE_BASE_URL must use HTTPS or the private "
+                    "fraudguard-core-api Docker hostname in production"
+                )
             if not self.fraudguard_core_api_key:
                 raise ValueError("FRAUDGUARD_CORE_API_KEY is required in production")
             if not self.agent_access_key:
                 raise ValueError("AGENT_ACCESS_KEY is required in production")
         if self.agent_model_provider != "deterministic":
             raise ValueError("Only the deterministic provider is configured in this deployment")
+        if self.agent_runtime == "openclaw" and self.production and not self.openclaw_gateway_token:
+            raise ValueError("OPENCLAW_GATEWAY_TOKEN is required for the OpenClaw bridge")
         if self.agent_replicas > 1:
             raise ValueError(
                 "Horizontal scaling requires a shared Redis session store; in-memory sessions "

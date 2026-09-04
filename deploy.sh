@@ -52,13 +52,17 @@ update_source() {
 wait_ready() {
     attempt=1
     max_attempts=${READINESS_ATTEMPTS:-30}
-    log "Waiting for Agent and Core readiness"
+    log "Waiting for tool adapter, Core, and OpenClaw Bridge readiness"
     while [ "$attempt" -le "$max_attempts" ]; do
         if compose exec -T agent python -c \
             'import json,urllib.request; data=json.load(urllib.request.urlopen("http://127.0.0.1:3000/ready", timeout=3)); raise SystemExit(0 if data.get("status") == "ready" else 1)' \
+            >/dev/null 2>&1 \
+            && compose exec -T bridge python -c \
+            'import json,os,urllib.request; req=urllib.request.Request("http://127.0.0.1:3100/ready",headers={"X-Agent-Key":os.environ.get("AGENT_ACCESS_KEY","")}); data=json.load(urllib.request.urlopen(req,timeout=5)); raise SystemExit(0 if data.get("orchestrator")=="openclaw" else 1)' \
             >/dev/null 2>&1; then
             compose ps
-            log "Agent is ready at http://127.0.0.1:${AGENT_PORT:-3000}"
+            log "Tool adapter is ready at http://127.0.0.1:${AGENT_PORT:-3000}"
+            log "OpenClaw Bridge is ready at http://127.0.0.1:${OPENCLAW_BRIDGE_PORT:-3100}"
             return 0
         fi
         attempt=$((attempt + 1))
@@ -72,7 +76,7 @@ show_failure_logs() {
     trap - EXIT INT TERM
     if [ "$exit_code" -ne 0 ] && [ "$DEPLOY_STARTED" -eq 1 ]; then
         printf '%s\n' "[fraudguard-agent] Deployment failed. Recent logs:" >&2
-        compose logs --no-color --tail=100 agent >&2 || true
+        compose logs --no-color --tail=100 agent bridge >&2 || true
     fi
     exit "$exit_code"
 }
@@ -105,7 +109,7 @@ case "$ACTION" in
         compose ps
         ;;
     logs)
-        compose logs -f --tail=200 agent
+        compose logs -f --tail=200 agent bridge
         ;;
     stop)
         compose down --remove-orphans
@@ -114,20 +118,20 @@ case "$ACTION" in
     restart)
         ensure_network
         DEPLOY_STARTED=1
-        compose restart agent
+        compose restart agent bridge
         wait_ready || fail "Agent did not become ready after restart. Check Core connectivity."
         ;;
     deploy|update)
         ensure_network
         DEPLOY_STARTED=1
         if [ "${NO_CACHE:-0}" = "1" ]; then
-            compose build --pull --no-cache agent
+            compose build --pull --no-cache agent bridge
         else
-            compose build --pull agent
+            compose build --pull agent bridge
         fi
-        log "Starting Agent"
-        compose up -d --remove-orphans agent
-        wait_ready || fail "Agent did not become ready. Deploy Core first and verify the Core API key."
+        log "Starting tool adapter and OpenClaw Bridge"
+        compose up -d --remove-orphans agent bridge
+        wait_ready || fail "Agent stack did not become ready. Verify Core, OpenClaw Gateway, and both server-side keys."
         ;;
 esac
 

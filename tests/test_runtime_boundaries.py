@@ -42,7 +42,7 @@ def test_credential_request_routes_to_fraud_analysis_without_secret_value(
     assert "otp" not in plan.arguments["context"]
 
 
-def test_phishing_otp_journey_extracts_chain_and_uses_url_skill() -> None:
+def test_phishing_otp_journey_extracts_chain_and_uses_fraud_skill() -> None:
     planner = DeterministicPlanner()
 
     plan = planner.plan(
@@ -50,7 +50,7 @@ def test_phishing_otp_journey_extracts_chain_and_uses_url_skill() -> None:
         {},
     )
 
-    assert plan.selected_skill == "malicious-url"
+    assert plan.selected_skill == "fraud-detection"
     assert plan.selected_tool == "fraud_analyze"
     assert plan.arguments["context"] == {
         "suspicious_url": True,

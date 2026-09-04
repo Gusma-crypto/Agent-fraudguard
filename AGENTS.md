@@ -130,7 +130,12 @@ This workspace builds **FraudGuard AI — Agentic Fraud Protection That Remember
 
 ### Product boundary
 
-- Use one FraudGuard orchestrator with the `fraud-detection`, `safety-payment`, and `realtime-intervention` skills.
+- Use one FraudGuard orchestrator with three protection skills (`fraud-detection`,
+  `safety-payment`, and `realtime-intervention`) plus two mutually exclusive routing
+  specializations (`social-engineering` and `intelligence-search`).
+- Select one primary skill per turn. Suspicious URL behavior belongs to
+  `fraud-detection`; explicit URL/domain reputation lookup belongs to
+  `intelligence-search`.
 - Treat all payment actions as internal sandbox state. Never imply that the MVP can block a real bank account or move real money.
 - The agent supplies contextual analysis and tool orchestration. Risk, policy, protected decisions, persistence, and authoritative audit belong only to `logic-backend-server`.
 - Skills and tools may recommend actions but must never bypass policy.

@@ -143,6 +143,47 @@ class DeterministicPlanner:
                 arguments=arguments,
                 rationale="Identifier harus dinormalisasi dan dicari local-first oleh Core.",
             )
+        requested_skill = str(context.get("requested_skill", "")).lower()
+        if requested_skill in {
+            "fraud-detection",
+            "fraud-detection:v1",
+            "social-engineering",
+        }:
+            facts = candidate_facts(message)
+            core_context = {**context, **facts}
+            selected_skill = requested_skill.removesuffix(":v1") or "fraud-detection"
+            return Plan(
+                intent=Intent.FRAUD_ANALYSIS,
+                selected_skill=selected_skill,
+                selected_tool="fraud_analyze",
+                arguments={"context": core_context},
+                rationale=(
+                    "Skill perlindungan yang dipilih pengguna diteruskan ke "
+                    "analisis authoritative Core."
+                ),
+            )
+        if requested_skill in {"safety-payment", "safety-payment:v1"}:
+            payment_fields = {"external_payment_id", "amount", "currency", "recipient_ref"}
+            missing = sorted(payment_fields - set(context))
+            return Plan(
+                intent=Intent.PAYMENT_SAFETY,
+                missing_information=missing,
+                selected_skill="safety-payment",
+                rationale=(
+                    "Pemeriksaan pembayaran dipilih pengguna; data transaksi "
+                    "terstruktur diperlukan sebelum penilaian."
+                ),
+            )
+        if requested_skill in {"realtime-intervention", "realtime-intervention:v1"}:
+            return Plan(
+                intent=Intent.INTERVENTION_RESPONSE,
+                missing_information=["intervention_id", "intervention_result"],
+                selected_skill="realtime-intervention",
+                rationale=(
+                    "Intervensi realtime hanya dapat dilanjutkan pada sesi "
+                    "intervensi Core yang aktif."
+                ),
+            )
         payment_fields = {"external_payment_id", "amount", "currency", "recipient_ref"}
         if payment_fields.intersection(context):
             missing = sorted(payment_fields - set(context))
@@ -170,9 +211,7 @@ class DeterministicPlanner:
         if facts or any(term in text for term in self.fraud_terms):
             core_context = {**context, **facts}
             selected_skill = "fraud-detection"
-            if facts.get("suspicious_url") or facts.get("link_click_instruction"):
-                selected_skill = "malicious-url"
-            elif any(
+            if any(
                 facts.get(key)
                 for key in ("prize_scam", "authority_impersonation", "remote_guidance")
             ):

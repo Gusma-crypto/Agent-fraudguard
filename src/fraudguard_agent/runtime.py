@@ -240,7 +240,12 @@ class AgentRuntime:
             )
             data = {**data, "intervention_id": action_data.get("id")}
         response_message, state = explain(decision, data, session.language)
-        if plan.selected_skill == "malicious-url":
+        planned_context = plan.arguments.get("context", {})
+        phishing_journey = isinstance(planned_context, dict) and any(
+            planned_context.get(key)
+            for key in ("suspicious_url", "link_click_instruction", "credential_request")
+        )
+        if plan.selected_skill == "fraud-detection" and phishing_journey:
             response_message += text("phishing_stop", session.language)
         elif plan.selected_skill == "social-engineering":
             response_message += text("social_stop", session.language)

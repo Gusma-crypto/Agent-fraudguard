@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .context import SessionNotFound, SessionStore
-from .core_client import CoreClient
-from .models import ChatRequest, ChatResponse, SessionCreate, SessionView
+from .core_client import CoreClient, CoreError
+from .models import ChatRequest, ChatResponse, SessionCreate, SessionView, ToolExecutionRequest
 from .runtime import AgentRuntime
 
 settings = get_settings()
@@ -119,3 +119,20 @@ async def list_tools(_: AgentAuth) -> dict[str, Any]:
             for tool in runtime.tools.tools.values()
         ]
     }
+
+
+@app.post("/agent/v1/tools/{tool_name}/execute")
+async def execute_tool(
+    tool_name: str,
+    payload: ToolExecutionRequest,
+    _: AgentAuth,
+    x_trace_id: Annotated[str | None, Header(alias="X-Trace-ID")] = None,
+) -> dict[str, Any]:
+    """Execute one allowlisted typed tool without invoking the native planner."""
+    try:
+        return await runtime.tools.execute(tool_name, payload.arguments, x_trace_id)
+    except CoreError as exc:
+        headers = {"X-Trace-ID": exc.trace_id} if exc.trace_id else None
+        raise HTTPException(exc.status_code, str(exc), headers=headers) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc

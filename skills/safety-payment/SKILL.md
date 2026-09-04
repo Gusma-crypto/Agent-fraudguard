@@ -12,9 +12,15 @@ Wajib memiliki `external_payment_id`, `amount`, `currency`, dan `recipient_ref`.
 credential. Panggil `safety_payment` dengan idempotency. `ALLOW` dijelaskan tanpa
 jaminan; review/verification/hold mengikuti state yang dibuat Core.
 
+Gunakan hanya untuk pre-transfer check yang memiliki konteks pembayaran terstruktur.
+Pesan umum yang sekadar menyebut transfer tetap masuk `fraud-detection` atau
+`social-engineering`; jangan mengarang payment ID atau recipient untuk memaksa routing.
+
 ## OpenClaw execution
 
-Gunakan `tools/fraudguard-agent chat` dan masukkan field pembayaran ke
-`--context-json`; jangan meletakkannya di URL atau log. Pertahankan `session_id` jika
-percakapan berlanjut. Jangan fallback ke generic HTTP, shell, atau keputusan pembayaran
-lokal ketika CLI/Agent/Core gagal.
+Untuk request OpenResponses frontend, gunakan function tool `safety_payment` dari Bridge.
+Pada TUI/admin tanpa client tool, gunakan fallback
+`tools/fraudguard-agent tool-execute --name safety_payment --arguments-json <json>`.
+Masukkan hanya field pembayaran non-sensitif. Jangan memanggil
+subcommand `chat`, meletakkan data di URL/log, atau fallback ke generic HTTP, shell, dan
+keputusan pembayaran lokal ketika CLI/tool adapter/Core gagal.

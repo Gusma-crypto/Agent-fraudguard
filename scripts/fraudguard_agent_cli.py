@@ -18,6 +18,19 @@ from typing import Any
 DEFAULT_URL = "http://127.0.0.1:3000"
 DEFAULT_KEY_FILE = Path.home() / ".config" / "fraudguard-agent" / "access.key"
 MAX_RESPONSE_BYTES = 1_048_576
+ALLOWED_TOOLS = (
+    "fraud_analyze",
+    "create_assessment",
+    "ingest_event",
+    "safety_payment",
+    "create_intervention",
+    "submit_intervention_response",
+    "get_incident",
+    "get_trace",
+    "get_trace_audit",
+    "intelligence_lookup",
+    "get_capability",
+)
 
 
 class CliError(RuntimeError):
@@ -70,11 +83,14 @@ def request(
     payload: dict[str, Any] | None = None,
     *,
     timeout: float,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     headers = {"Accept": "application/json"}
     key = access_key()
     if key:
         headers["X-Agent-Key"] = key
+    if trace_id:
+        headers["X-Trace-ID"] = trace_id
     body = None
     if payload is not None:
         body = json.dumps(payload, separators=(",", ":")).encode()
@@ -127,6 +143,12 @@ def parser() -> argparse.ArgumentParser:
     chat.add_argument("--message", required=True, help="pesan pengguna")
     chat.add_argument("--session-id", help="UUID session dari respons sebelumnya")
     chat.add_argument("--context-json", default="{}", help="context non-sensitif")
+    tool = commands.add_parser(
+        "tool-execute", help="jalankan satu typed tool; orchestration tetap milik OpenClaw"
+    )
+    tool.add_argument("--name", required=True, choices=ALLOWED_TOOLS, help="nama tool allowlisted")
+    tool.add_argument("--arguments-json", default="{}", help="typed tool arguments")
+    tool.add_argument("--trace-id", help="trace UUID untuk korelasi Core")
     return root
 
 
@@ -144,6 +166,21 @@ def run(argv: list[str] | None = None) -> int:
             "/agent/v1/sessions",
             {"channel": args.channel},
             timeout=args.timeout,
+        )
+    elif args.command == "tool-execute":
+        arguments = parse_json_object(args.arguments_json, "--arguments-json")
+        headers_trace = args.trace_id
+        if headers_trace:
+            try:
+                headers_trace = str(uuid.UUID(headers_trace))
+            except ValueError as exc:
+                raise CliError("--trace-id harus berupa UUID valid") from exc
+        result = request(
+            "POST",
+            f"/agent/v1/tools/{args.name}/execute",
+            {"arguments": arguments},
+            timeout=args.timeout,
+            trace_id=headers_trace,
         )
     else:
         context = parse_json_object(args.context_json, "--context-json")

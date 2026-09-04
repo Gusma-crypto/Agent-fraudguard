@@ -1,10 +1,26 @@
 # Instalasi dan Penggunaan FraudGuard di OpenClaw
 
-Integrasi terdiri dari enam workspace skill dan satu CLI komunikasi terikat:
+Integrasi produksi terdiri dari tujuh root contract, lima workspace skill yang tidak
+tumpang tindih, dan satu CLI komunikasi terikat:
 
 ```text
-OpenClaw skill → tools/fraudguard-agent → FraudGuard Agent API → FraudGuard Core
+Frontend → OpenClaw Bridge → OpenClaw Gateway → OpenClaw skill
+→ typed client function call → OpenClaw Bridge → FraudGuard Core
 ```
+
+Pada jalur frontend, client function tools tidak bergantung pada network Docker sandbox.
+CLI `tools/fraudguard-agent tool-execute` tetap tersedia sebagai fallback TUI/admin.
+
+Aktifkan OpenResponses API private sebelum menjalankan bridge:
+
+```bash
+openclaw config set gateway.http.endpoints.responses.enabled true
+openclaw gateway restart
+openclaw status
+```
+
+Simpan token Gateway hanya pada `.env` service Agent sebagai
+`OPENCLAW_GATEWAY_TOKEN`; jangan menaruhnya pada frontend atau `NEXT_PUBLIC_*`.
 
 CLI tidak menerima URL dari percakapan. Default hanya menuju
 `http://127.0.0.1:3000`; HTTP non-loopback ditolak dan endpoint remote wajib HTTPS.
@@ -22,10 +38,60 @@ Dari repository `Agent-fraudguard` di VPS:
 
 ```bash
 chmod +x scripts/install_openclaw.sh scripts/fraudguard_agent_cli.py
-./scripts/install_openclaw.sh
+./scripts/install_openclaw.sh \
+  --workspace /root/.openclaw/workspace-fraudguard \
+  --force
+```
+
+Hasil instalasi:
+
+```text
+/root/.openclaw/workspace-fraudguard/
+├── AGENTS.md
+├── SOUL.md
+├── IDENTITY.md
+├── TOOLS.md
+├── MANIFEST.md
+├── USER.md
+├── HEARTBEAT.md
+├── skills/
+│   ├── fraud-detection/SKILL.md
+│   ├── safety-payment/SKILL.md
+│   ├── realtime-intervention/SKILL.md
+│   ├── social-engineering/SKILL.md
+│   └── intelligence-search/SKILL.md
+└── tools/
+    └── fraudguard-agent
+```
+
+Jika agent belum terdaftar, bind workspace secara eksplisit. Jangan jalankan `agents add`
+lagi jika `openclaw agents list` sudah memuat agent `fraudguard`:
+
+```bash
+openclaw agents list
+openclaw agents add fraudguard \
+  --workspace /root/.openclaw/workspace-fraudguard \
+  --non-interactive
+openclaw agents set-identity \
+  --workspace /root/.openclaw/workspace-fraudguard \
+  --from-identity
 ```
 
 ## Sandbox runtime
+
+Aktifkan OpenResponses dan bind Gateway hanya ke loopback plus interface private Docker:
+
+```bash
+DOCKER_HOST_GATEWAY="$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')"
+openclaw config set gateway.http.endpoints.responses.enabled true
+openclaw config set gateway.bind custom
+openclaw config set gateway.customBindHost "$DOCKER_HOST_GATEWAY"
+openclaw gateway restart
+```
+
+Jangan gunakan `gateway.bind=lan` dan jangan membuka TCP 18789 pada firewall/cloud
+security group. Container Bridge mengakses alamat tersebut sebagai
+`http://host.docker.internal:18789` memakai bearer token server-side.
 
 Atur tiga setting ini secara independen agar agent berjalan terisolasi di Docker:
 
@@ -44,13 +110,15 @@ openclaw config get agents.defaults.workspace
 Untuk workspace atau profile tertentu:
 
 ```bash
-./scripts/install_openclaw.sh --workspace /root/.openclaw/workspace
+./scripts/install_openclaw.sh --workspace /root/.openclaw/workspace-fraudguard
 ./scripts/install_openclaw.sh --profile production
 ./scripts/install_openclaw.sh --dev
 ```
 
 Installer aman dijalankan ulang. File berbeda tidak ditimpa kecuali `--force`; mode
 tersebut memindahkan versi lama ke `.fraudguard-backups/<timestamp>/` di workspace.
+Installer tidak mengubah `openclaw.json`, sandbox default, credential, `MEMORY.md`, atau
+isi `memory/`; konfigurasi Gateway dan binding agent tetap langkah operator terpisah.
 
 ## Memperbarui skill setelah repository di-update
 
@@ -59,11 +127,13 @@ Setelah perubahan Agent sudah di-push, jalankan langkah berikut pada VPS:
 ```bash
 cd ~/Agent-fraudguard
 ./deploy.sh update
-./scripts/install_openclaw.sh --force
+./scripts/install_openclaw.sh \
+  --workspace /root/.openclaw/workspace-fraudguard \
+  --force
 ```
 
 `deploy.sh update` melakukan fast-forward pull, build ulang image, dan restart Agent.
-Installer kemudian menyalin versi terbaru dari keenam skill dan CLI komunikasi ke
+Installer kemudian menyalin tujuh root contract, lima skill produksi, dan CLI komunikasi ke
 workspace OpenClaw. `--force` tidak langsung menghapus versi lama: file yang berbeda
 dipindahkan terlebih dahulu ke:
 
@@ -79,10 +149,9 @@ openclaw skills info safety-payment
 openclaw skills info realtime-intervention
 openclaw skills info intelligence-search
 openclaw skills info social-engineering
-openclaw skills info malicious-url
 openclaw skills check
 
-OPENCLAW_WORKSPACE="$(openclaw config get agents.defaults.workspace | tr -d '"')"
+OPENCLAW_WORKSPACE=/root/.openclaw/workspace-fraudguard
 FRAUDGUARD_CLI="$OPENCLAW_WORKSPACE/tools/fraudguard-agent"
 "$FRAUDGUARD_CLI" health
 "$FRAUDGUARD_CLI" ready
@@ -136,7 +205,6 @@ openclaw skills info safety-payment
 openclaw skills info realtime-intervention
 openclaw skills info intelligence-search
 openclaw skills info social-engineering
-openclaw skills info malicious-url
 openclaw skills check
 ```
 
@@ -158,13 +226,13 @@ openclaw skills info skill-creator
 
 Contoh chat: `Buat skill dari capability fraud-detection v1.` Helper ini memverifikasi
 capability dan hanya membuat draft/file jika runtime mempunyai izin workspace. Jangan
-pasang dengan `--with-creator` pada workspace produksi yang hanya membutuhkan enam skill
+pasang dengan `--with-creator` pada workspace produksi yang hanya membutuhkan lima skill
 operasional.
 
 Uji CLI tanpa model dan simpan path untuk command berikutnya:
 
 ```bash
-OPENCLAW_WORKSPACE="$(openclaw config get agents.defaults.workspace)"
+OPENCLAW_WORKSPACE=/root/.openclaw/workspace-fraudguard
 FRAUDGUARD_CLI="$OPENCLAW_WORKSPACE/tools/fraudguard-agent"
 "$FRAUDGUARD_CLI" health
 "$FRAUDGUARD_CLI" ready

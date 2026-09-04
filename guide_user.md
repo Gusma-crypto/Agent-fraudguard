@@ -1,5 +1,17 @@
 # Panduan Pengguna FraudGuard AI Agent
 
+Pada deployment OpenClaw, percakapan frontend masuk melalui FraudGuard OpenClaw Bridge.
+OpenClaw menjadi satu-satunya pemilih skill dan urutan tool. Tool adapter hanya
+memvalidasi serta menjalankan satu tool yang dipilih OpenClaw; FraudGuard Core tetap
+menentukan evidence, risk, policy, dan keputusan.
+
+Di frontend, status harus tertulis **OpenClaw Orchestrator**. Saat analisis berlangsung,
+panel ringkas hanya memperlihatkan tahapan seperti klasifikasi, ekstraksi, verifikasi,
+normalisasi evidence, korelasi, risk, dan policy. Rincian sumber tersedia di Evidence/Audit.
+Jalur browser memakai typed function tool dari Bridge; CLI hanya menjadi fallback untuk
+session OpenClaw TUI/admin. Jika Core tidak memberi hasil, UI menampilkan status belum
+terverifikasi dan tidak menerima score atau keputusan buatan model.
+
 FraudGuard menerima percakapan tentang pesan mencurigakan, keamanan pembayaran,
 intervensi, insiden, dan audit trace. Agent memahami konteks dan memilih tool; hasil
 risk/policy selalu berasal dari FraudGuard Core.
@@ -44,7 +56,7 @@ fraud sendiri ketika Core mengembalikan `ALLOW`.
 Untuk kasus link yang meminta pengisian form/OTP, hentikan interaksi, tutup halaman, dan
 hubungi penyedia lewat kanal resmi yang dicari sendiri. Untuk telepon hadiah yang meminta
 transfer, akhiri telepon dan jangan mengikuti panduan transfer sambil tetap tersambung.
-FraudGuard akan memilih jalur `malicious-url` atau `social-engineering` dan dapat mencatat
+FraudGuard akan memilih jalur `fraud-detection` atau `social-engineering` dan dapat mencatat
 intervensi yang diotorisasi Core; pencatatan itu tidak membatalkan transaksi eksternal.
 
 Lookup nomor/rekening/domain dapat diberikan sebagai context non-rahasia
@@ -72,9 +84,14 @@ audit Core yang sama.
 ## OpenClaw dan CLI
 
 Operator dapat memasang integrasi dengan `./scripts/install_openclaw.sh`. Setelah itu,
-OpenClaw menggunakan enam skill workspace dan CLI `<workspace>/tools/fraudguard-agent`
+OpenClaw menggunakan lima skill produksi dan CLI `<workspace>/tools/fraudguard-agent`
 untuk berkomunikasi dengan API agent. Instruksi instalasi, key file mode `600`, contoh
 chat, payment, dan intervention tersedia di `docs/OPENCLAW-INSTALL.md`.
+
+Untuk satu analisis normal, OpenClaw memilih satu skill utama dan tidak menjalankan ulang
+analisis hanya untuk mengisi kartu frontend. Hasil score, policy, evidence, status action,
+dan trace ditampilkan sesuai respons Core. Tidak adanya evidence bukan bukti bahwa entity
+aman atau pasti fraud.
 
 Sesudah update repository di VPS, jalankan `./deploy.sh update`, kemudian
 `./scripts/install_openclaw.sh --force`, `openclaw skills check`, dan buka session baru.
@@ -86,10 +103,10 @@ OpenClaw baru, lalu tulis misalnya `Buat skill dari capability fraud-detection v
 `skill-creator` hanya untuk development: ia memeriksa kontrak Core, mencegah duplikasi,
 dan tidak boleh membuat score, policy, endpoint, atau permission sendiri.
 
-Agent tetap harus dideploy walaupun Core sudah aktif karena tanggung jawab keduanya
-berbeda. Gunakan root `deploy.sh`; jalankan `update` untuk pull + rebuild atau `restart`
-untuk restart tanpa build. Pastikan `/health` dan `/ready` berhasil sebelum menghubungkan
-OpenClaw.
+Service bridge dan tool adapter tetap harus dideploy walaupun Core sudah aktif. Gunakan
+root `deploy.sh`; jalankan `update` untuk pull + rebuild atau `restart` tanpa build.
+Pastikan OpenClaw `/v1/responses` aktif, container `bridge` sehat, dan endpoint bridge
+`/ready` mengembalikan `orchestrator=openclaw`.
 
 Production saat ini harus memakai satu replica karena session conversation disimpan
 in-memory dengan TTL. Untuk horizontal scaling, tambahkan shared Redis session store

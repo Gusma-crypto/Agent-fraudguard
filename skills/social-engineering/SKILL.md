@@ -16,6 +16,19 @@ recommend ending the call, pausing the transfer, and independently contacting th
 organization through its official app/site/number. Never call a number supplied by the
 suspected caller.
 
-Core is the only decision authority. Preserve its decision, score, signals, and trace.
-Create an intervention only when the Core decision authorizes it. Never claim that an
-external bank transfer was blocked or reversed.
+Use this as the single primary skill when manipulation behavior is the main question.
+Use `fraud-detection` for generic mixed scam/phishing journeys and `intelligence-search`
+for explicit identifier reputation lookup. Do not run parallel duplicate assessments.
+
+Core is the only decision authority. Preserve its decision, score, signals, trace, and
+any intervention state returned by Core. Do not call a protected-action tool directly;
+that guard belongs to Core/adapter. Never claim that an external bank transfer was
+blocked or reversed.
+
+## OpenClaw execution
+
+For frontend OpenResponses requests, use the provided `fraud_analyze` function tool. For
+TUI/admin sessions without client tools, fall back to
+`tools/fraudguard-agent tool-execute --name fraud_analyze --arguments-json <json>`.
+Do not call the `chat` subcommand; OpenClaw is the sole planner. Pass only typed,
+non-sensitive context and preserve the Core trace and decision.

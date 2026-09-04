@@ -67,6 +67,21 @@ class ChatRequest(BaseModel):
         return self
 
 
+class ToolExecutionRequest(BaseModel):
+    """Direct bounded tool invocation for OpenClaw skills.
+
+    This endpoint bypasses the native planner; OpenClaw owns orchestration.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def reject_credentials(self) -> "ToolExecutionRequest":
+        reject_sensitive_fields(self.arguments)
+        return self
+
+
 class PaymentInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     external_payment_id: str = Field(min_length=1, max_length=255)

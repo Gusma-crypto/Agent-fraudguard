@@ -3,19 +3,26 @@
 FraudGuard AI Agent adalah layer **Reasoning + Orchestration + Conversation** untuk
 FraudGuard Core di repository `Fraudguard-core`.
 
-Boundary final:
+Boundary production OpenClaw:
 
 ```text
-User / OpenClaw / Application
-              ↓
-FraudGuard AI Agent
-conversation, context, planner, guardrails, typed tools
-              ↓ HTTPS REST
+Frontend / Application
+        ↓ HTTPS
+FraudGuard OpenClaw Bridge
+        ↓ private OpenResponses API
+OpenClaw Gateway (sole orchestrator + skills)
+        ↓ typed function-call response
+FraudGuard OpenClaw Bridge
+        ↓ HTTPS REST
 FraudGuard Core
 risk, policy, protected decision, incident, learning, audit, PostgreSQL
 ```
 
-Agent tidak memiliki database, risk engine, policy engine, atau authoritative audit.
+UI menampilkan `OpenClaw Orchestrator` berdasarkan `GET /agent/v1/tools`. Nama provider
+tidak ditampilkan di panel progress utama; detail evidence/audit tetap berasal dari Core.
+Session OpenClaw disimpan di `sessionStorage`, sehingga `New Chat` membuat konteks baru.
+
+Bridge dan tool adapter tidak memiliki database, risk engine, policy engine, atau authoritative audit.
 Reasoning V1 menggunakan provider `deterministic`; tidak membutuhkan API key model.
 Fraud decision `REVIEW`, `STEP_UP_VERIFY`, atau `TEMPORARY_HOLD` memicu satu intervensi
 protektif idempotent di Core. Agent tidak melakukan enforcement pada akun, pembayaran,
@@ -36,6 +43,33 @@ claim, risk, dan policy. Frontend/Agent harus membedakan observation, claim, dan
 - `GET /agent/v1/tools`
 - `GET /health`
 - `GET /ready`
+- `POST /agent/v1/tools/{tool_name}/execute` (private tool adapter)
+
+Frontend memakai service bridge pada alias Docker `fraudguard-agent`. Untuk browser,
+Bridge menyediakan typed client tools pada OpenResponses dan mengeksekusi tool pilihan
+OpenClaw ke Core. Tool adapter loopback port `3000` tetap tersedia hanya sebagai fallback
+TUI/admin. Aktifkan endpoint Gateway terlebih dahulu:
+
+```bash
+openclaw config set gateway.http.endpoints.responses.enabled true
+DOCKER_HOST_GATEWAY="$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')"
+openclaw config set gateway.bind custom
+openclaw config set gateway.customBindHost "$DOCKER_HOST_GATEWAY"
+openclaw gateway restart
+```
+
+`customBindHost` membuat Gateway dapat dicapai Bridge melalui `host.docker.internal`
+tanpa bind publik `0.0.0.0`. Pastikan firewall/cloud security group tidak membuka TCP 18789.
+
+Set environment Agent tanpa menaruh token di frontend:
+
+```env
+AGENT_RUNTIME=openclaw
+OPENCLAW_GATEWAY_URL=http://host.docker.internal:18789
+OPENCLAW_GATEWAY_TOKEN=<gateway-token>
+OPENCLAW_AGENT_ID=main
+OPENCLAW_BRIDGE_PORT=3100
+```
 
 `/ready` hanya sukses ketika agent dapat mencapai endpoint ready milik Core.
 
@@ -113,14 +147,19 @@ sticky session saja tidak cukup untuk menjamin konsistensi saat failover.
 
 ## OpenClaw: install dan penggunaan cepat
 
-Setelah agent `/health` dan `/ready` berhasil, pasang enam skill beserta CLI komunikasi:
+Setelah agent `/health` dan `/ready` berhasil, pasang root contract, lima skill produksi,
+dan CLI komunikasi ke workspace khusus FraudGuard:
 
 ```bash
 chmod +x scripts/install_openclaw.sh scripts/fraudguard_agent_cli.py
-./scripts/install_openclaw.sh
+./scripts/install_openclaw.sh \
+  --workspace /root/.openclaw/workspace-fraudguard \
+  --force
 openclaw skills info fraud-detection
 openclaw skills info safety-payment
 openclaw skills info realtime-intervention
+openclaw skills info social-engineering
+openclaw skills info intelligence-search
 ```
 
 Setelah repository diperbarui, deploy Agent dan sinkronkan ulang skill ke workspace:
@@ -128,15 +167,23 @@ Setelah repository diperbarui, deploy Agent dan sinkronkan ulang skill ke worksp
 ```bash
 cd ~/Agent-fraudguard
 ./deploy.sh update
-./scripts/install_openclaw.sh --force
+./scripts/install_openclaw.sh \
+  --workspace /root/.openclaw/workspace-fraudguard \
+  --force
 openclaw skills check
-openclaw tui --session fraudguard-demo-v2
+openclaw agent --agent fraudguard --session-key fraudguard-demo-v2 \
+  --message "Periksa pesan mencurigakan ini ..."
 ```
 
 Installer membuat backup versi sebelumnya di
 `<workspace>/.fraudguard-backups/<timestamp>/`. Buka session baru agar OpenClaw memuat
-snapshot skill terbaru. Panduan enam-skill, profile production, verifikasi CLI, dan
+snapshot skill terbaru. Panduan lima-skill, profile production, verifikasi CLI, dan
 troubleshooting tersedia di [docs/OPENCLAW-INSTALL.md](docs/OPENCLAW-INSTALL.md).
+
+`openclaw-workspace/AGENTS.md` membatasi satu primary assessment per turn, mencegah
+duplikasi skill/provider call, menjaga nilai Core apa adanya, mengisolasi session dan
+memory, serta membuat file runtime read-only selama penanganan kasus. CLI fallback hanya
+untuk data sintetis/masked karena argument command dapat terlihat di process list.
 
 CLI dipasang sebagai `<workspace>/tools/fraudguard-agent` dan hanya mengakses endpoint
 agent yang telah dibatasi. Siapkan path CLI dan periksa komunikasi:
@@ -210,8 +257,8 @@ dan tidak boleh mengubah `ALLOW` menjadi klaim fraud atau kepastian "100% penipu
 
 Agent juga mengenali dua journey berisiko tinggi: link/form + OTP/credential, serta
 impersonation marketplace/bank + hadiah + permintaan transfer/remote guidance. Journey
-tersebut memakai skill `malicious-url` atau `social-engineering`, tetapi keputusan tetap
-berasal dari Core. Untuk lookup eksplisit gunakan context `intelligence_query`, optional
+pertama memakai `fraud-detection`, sedangkan journey kedua dapat memakai
+`social-engineering`; keputusan tetap berasal dari Core. Untuk lookup eksplisit gunakan context `intelligence_query`, optional
 `entity_type`, dan `deep_search`; skill `intelligence-search` tidak mengarang evidence
 ketika public discovery belum dikonfigurasi.
 

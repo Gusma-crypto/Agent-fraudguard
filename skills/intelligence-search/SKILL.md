@@ -13,6 +13,10 @@ with multiple indicators, provide `intelligence_input` containing `text` and opt
 `phone`, `url`, `bank_account`, `email`, and `transaction_context`; Core routes every
 extracted entity. Never request or submit an OTP, PIN, password, CVV, token, or full credential.
 
+This skill owns explicit URL/domain reputation lookup but not the user's click/login/OTP
+journey; route that behavioral journey to `fraud-detection`. It produces intelligence
+observations and claims, not a duplicate general fraud assessment.
+
 Treat `UNVERIFIED`, `INSUFFICIENT_INTELLIGENCE`, and `PENDING_AGENT_DISCOVERY` literally.
 They are not fraud confirmation. Preserve Core risk, policy, confidence, provenance, and
 trace data without inventing sources or converting a report into a verified fact.
@@ -38,5 +42,9 @@ processed. Do not infer safety from an empty provider response.
 
 ## OpenClaw execution
 
-Use `tools/fraudguard-agent chat` and pass lookup fields via `--context-json`. Never use
-arbitrary HTTP, shell, SQL, leaked datasets, credential dumps, or unrestricted scraping.
+For frontend OpenResponses requests, use the provided `intelligence_lookup` function tool.
+For TUI/admin sessions without client tools, fall back to
+`tools/fraudguard-agent tool-execute --name intelligence_lookup --arguments-json <json>`.
+OpenClaw owns extraction and orchestration; do not call the `chat` subcommand because that
+would invoke a second planner. Never use arbitrary HTTP, shell, SQL, leaked datasets,
+credential dumps, or unrestricted scraping.

@@ -86,28 +86,23 @@ if [[ -z "$workspace" || "$workspace" != /* ]]; then
   exit 1
 fi
 
-# Configure the three sandbox dimensions independently for every agent.
-configure_sandbox() {
-  command -v openclaw >/dev/null || { echo "OpenClaw CLI not found; sandbox settings were not applied." >&2; return 0; }
-  openclaw "${openclaw_args[@]}" config set agents.defaults.sandbox.mode non-main
-  openclaw "${openclaw_args[@]}" config set agents.defaults.sandbox.scope agent
-  openclaw "${openclaw_args[@]}" config set agents.defaults.sandbox.backend docker
-  echo "Sandbox configured: mode=non-main scope=agent backend=docker"
-}
-
-configure_sandbox
-
 skills=(
   fraud-detection
   safety-payment
   realtime-intervention
   intelligence-search
   social-engineering
-  malicious-url
 )
+root_files=(AGENTS.md SOUL.md IDENTITY.md TOOLS.md MANIFEST.md USER.md HEARTBEAT.md)
 if [[ $with_creator -eq 1 ]]; then
   skills+=(skill-creator)
 fi
+for file in "${root_files[@]}"; do
+  [[ -f "${repo_root}/openclaw-workspace/${file}" ]] || {
+    echo "Missing runtime source: openclaw-workspace/${file}" >&2
+    exit 1
+  }
+done
 for skill in "${skills[@]}"; do
   [[ -f "${repo_root}/skills/${skill}/SKILL.md" ]] || {
     echo "Missing source skill: skills/${skill}/SKILL.md" >&2
@@ -149,9 +144,10 @@ install_file() {
   local source_path="$1"
   local target_path="$2"
   local backup_path="$3"
+  local mode="$4"
   if [[ -e "$target_path" ]]; then
     if cmp -s "$source_path" "$target_path"; then
-      chmod 700 "$target_path"
+      chmod "$mode" "$target_path"
       echo "unchanged: $target_path"
       return
     fi
@@ -165,10 +161,34 @@ install_file() {
   fi
   mkdir -p "$(dirname -- "$target_path")"
   cp "$source_path" "$target_path"
-  chmod 700 "$target_path"
+  chmod "$mode" "$target_path"
   echo "installed: $target_path"
   changed=1
 }
+
+retire_managed_path() {
+  local target_path="$1"
+  local backup_path="$2"
+  [[ -e "$target_path" ]] || return 0
+  if [[ $force -ne 1 ]]; then
+    echo "Retired managed path still exists: $target_path; rerun with --force to back it up" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname -- "$backup_path")"
+  mv "$target_path" "$backup_path"
+  echo "retired: $target_path -> $backup_path"
+  changed=1
+}
+
+mkdir -p "$workspace"
+chmod 700 "$workspace"
+for file in "${root_files[@]}"; do
+  install_file \
+    "${repo_root}/openclaw-workspace/${file}" \
+    "${workspace}/${file}" \
+    "${backup_root}/${file}" \
+    600
+done
 
 for skill in "${skills[@]}"; do
   install_directory \
@@ -179,7 +199,12 @@ done
 install_file \
   "${repo_root}/scripts/fraudguard_agent_cli.py" \
   "${workspace}/tools/fraudguard-agent" \
-  "${backup_root}/tools/fraudguard-agent"
+  "${backup_root}/tools/fraudguard-agent" \
+  700
+
+retire_managed_path \
+  "${workspace}/skills/malicious-url" \
+  "${backup_root}/retired/skills/malicious-url"
 
 echo
 echo "FraudGuard OpenClaw files are ready in: $workspace"
@@ -192,4 +217,5 @@ else
   echo "Validate with: openclaw skills info fraud-detection"
 fi
 echo "Test bridge:  ${workspace}/tools/fraudguard-agent health"
+echo "Global OpenClaw config was not changed. Bind this workspace to agent 'fraudguard' separately."
 echo "Open a new OpenClaw session after installation so the skill snapshot refreshes."

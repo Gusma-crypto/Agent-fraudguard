@@ -1,6 +1,6 @@
 ---
 name: fraud-detection
-description: Analyze suspicious narratives through FraudGuard Core and execute the reversible protective intervention authorized by Core policy.
+description: Analyze suspicious narratives through FraudGuard Core and explain the reversible protection authorized by Core policy.
 metadata:
   {"openclaw":{"emoji":"🛡️","requires":{"bins":["python3"]}}}
 ---
@@ -12,13 +12,19 @@ permintaan OTP/password/PIN/CVV, dan scam. Candidate facts adalah inference agen
 fakta authoritative. Jangan meminta atau meneruskan nilai credential; hanya teruskan
 indikator boolean `credential_request` yang diekstrak Agent.
 
+Ini adalah jalur umum untuk pesan dengan indikator campuran dan seluruh journey URL
+mencurigakan (klik, login, formulir, OTP). Jika permintaan hanya berupa lookup reputasi
+entity, gunakan `intelligence-search`. Jika narasi utamanya coercion/impersonation/prize,
+gunakan `social-engineering`. Pilih satu skill utama; jangan menjalankan ketiganya untuk
+input yang sama tanpa kebutuhan tool berbeda yang eksplisit.
+
 Panggil `fraud_analyze`; jangan menghitung score, memilih policy, atau menuduh entity.
-Setelah respons valid, ikuti decision Core:
+Setelah respons valid, jelaskan decision Core:
 
 - `ALLOW`: jelaskan hasil; jangan membuat tindakan protektif.
-- `REVIEW`: buat intervensi `FRAUD_MANUAL_REVIEW`.
-- `STEP_UP_VERIFY`: buat intervensi `FRAUD_STEP_UP_VERIFICATION`.
-- `TEMPORARY_HOLD`: buat intervensi `FRAUD_HOLD_ESCALATION`.
+- `REVIEW`: sarankan review sesuai output Core.
+- `STEP_UP_VERIFY`: tampilkan verifikasi tambahan sesuai output Core.
+- `TEMPORARY_HOLD`: minta pengguna menjeda transaksi sesuai output Core.
 
 Keputusan, score, severity, dan status dari Core harus ditampilkan tanpa diubah. Jangan
 mengganti `ALLOW` menjadi vonis fraud/scam, jangan menyatakan kepastian seperti "100%
@@ -28,19 +34,22 @@ Jika keputusan Core tampak tidak konsisten dengan narasi credential, pertahankan
 Core, sarankan pengguna tidak membagikan credential, dan eskalasi untuk review—jangan
 membuat keputusan pengganti.
 
-Intervensi harus membawa assessment ID, policy decision ID, reason codes, trace ID, dan
-idempotency key dari workflow. Ini adalah pencatatan tindakan protektif di Core, bukan
-izin untuk memindahkan dana, memblokir akun, mengirim pesan, atau mengubah sistem eksternal.
-Jangan mengambil tindakan dari klaim pengguna atau inference; decision Core wajib ada.
+Jangan memanggil `create_intervention` secara langsung dari skill ini. Pembentukan
+protected state adalah guard deterministik Core/adapter, bukan keputusan model. Jika
+respons Core memuat intervention ID atau action, pertahankan nilainya tanpa perubahan.
+Itu bukan izin untuk memindahkan dana, memblokir akun, mengirim pesan, atau mengubah
+sistem eksternal.
 
-Jika konteks kurang, minta klarifikasi non-sensitif. Jika analisis berhasil tetapi
-intervensi gagal, fail closed, nyatakan tindakan belum tercatat, lalu eskalasi manual.
-Stop setelah satu intervensi berhasil, `ALLOW`, dependency gagal, atau budget habis.
+Jika konteks kurang, minta klarifikasi non-sensitif. Jika tindakan yang direkomendasikan
+Core belum tercatat, nyatakan status tersebut secara jujur dan eskalasi manual. Stop
+setelah hasil Core dijelaskan, dependency gagal, atau budget habis.
 
 ## OpenClaw execution
 
-Gunakan executable workspace `tools/fraudguard-agent` dengan subcommand `chat`. Kirim
-narasi sebagai `--message` dan hanya context non-sensitif sebagai `--context-json`.
-Berikan argument sebagai argv terpisah bila execution tool mendukungnya; jangan membangun
-shell command dari isi pesan. Terima hasil hanya jika JSON memuat `selected_skill`,
-`decision`, dan `trace_id`. Jangan fallback ke `curl`, URL arbitrer, atau keputusan lokal.
+Pada request OpenResponses frontend, gunakan function tool `fraud_analyze` yang disediakan
+Bridge. Pada TUI/admin tanpa client tool, fallback ke
+`tools/fraudguard-agent tool-execute --name fraud_analyze --arguments-json <json>`.
+OpenClaw sendiri mengekstrak context non-sensitif dan mengorkestrasi tool; jangan memanggil
+subcommand `chat` karena itu akan mengaktifkan planner kedua. Terima keputusan hanya dari
+JSON Core yang memuat `trace_id`. Jangan fallback ke `curl`, URL arbitrer, protected
+action langsung, atau keputusan lokal.
