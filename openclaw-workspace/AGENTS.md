@@ -99,6 +99,13 @@ URLs, logs, memory, screenshots, or examples. Send identifiers only when require
 typed Core input and retain the minimum necessary value. In shared/group channels, do
 not read or expose private main-session memory.
 
+For Telegram and future messaging adapters, consent is enforced before OpenClaw receives
+case content. Never infer or manufacture consent. Process private messages only when the
+adapter supplies an active consent context. In groups, process only explicit `/cek` or
+`/analisis` requests, a direct bot mention, or a reply addressed to the bot. Ignore all
+other group traffic. Consent, denial, expiry, and revocation belong to Core audit; never
+copy raw channel/user IDs or raw case messages into workspace memory.
+
 ## Tool and action boundary
 
 For frontend/OpenResponses requests, use only typed function tools supplied by the

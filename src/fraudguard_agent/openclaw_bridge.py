@@ -19,6 +19,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, status
 from .config import get_settings
 from .core_client import CoreClient, CoreError
 from .models import ChatRequest
+from .telegram import HttpTelegramApi, TelegramError, TelegramProcessor
 from .tools import ToolRegistry
 
 settings = get_settings()
@@ -80,7 +81,21 @@ async def lifespan(app: FastAPI):
     )
     app.state.core = CoreClient(settings)
     app.state.tools = ToolRegistry(app.state.core)
+    app.state.telegram_api = None
+    app.state.telegram = None
+    if settings.telegram_enabled:
+        app.state.telegram_api = HttpTelegramApi(
+            settings.telegram_bot_token.get_secret_value()
+        )
+        app.state.telegram = TelegramProcessor(
+            settings,
+            app.state.core,
+            app.state.telegram_api,
+            telegram_analysis,
+        )
     yield
+    if app.state.telegram_api is not None:
+        await app.state.telegram_api.close()
     await app.state.gateway.aclose()
     await app.state.core.close()
 
@@ -362,8 +377,7 @@ async def tools(_: BridgeAuth) -> dict[str, Any]:
     }
 
 
-@app.post("/agent/v1/chat")
-async def chat(payload: ChatRequest, _: BridgeAuth) -> dict[str, Any]:
+async def run_openclaw(payload: ChatRequest) -> dict[str, Any]:
     session_id = payload.session_id or uuid.uuid4()
     requested_skill, input_type = normalized_context(payload.context)
     request_body = {
@@ -467,3 +481,55 @@ async def chat(payload: ChatRequest, _: BridgeAuth) -> dict[str, Any]:
     normalized.setdefault("status", "completed")
     normalized.setdefault("selected_skill", requested_skill)
     return normalized
+
+
+async def telegram_analysis(
+    message: str,
+    session_id: uuid.UUID,
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        return await run_openclaw(
+            ChatRequest(session_id=session_id, message=message, context=context)
+        )
+    except HTTPException:
+        return {
+            "status": "failed",
+            "trace_id": None,
+            "risk": {"score": None, "level": "UNKNOWN"},
+            "policy": {"decision": "PENDING"},
+            "recommended_action": {
+                "code": "REVIEW_REQUIRED",
+                "message": (
+                    "Analisis authoritative belum tersedia. Jangan lanjutkan transaksi "
+                    "dan verifikasi melalui kanal resmi."
+                ),
+            },
+            "signals": [],
+        }
+
+
+@app.post("/agent/v1/chat")
+async def chat(payload: ChatRequest, _: BridgeAuth) -> dict[str, Any]:
+    return await run_openclaw(payload)
+
+
+@app.post("/telegram/v1/webhook", include_in_schema=False)
+async def telegram_webhook(
+    payload: dict[str, Any],
+    x_telegram_secret: Annotated[
+        str | None, Header(alias="X-Telegram-Bot-Api-Secret-Token")
+    ] = None,
+) -> dict[str, bool]:
+    if not settings.telegram_enabled or app.state.telegram is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Telegram integration is disabled")
+    expected = settings.telegram_webhook_secret.get_secret_value()
+    if not secrets.compare_digest(x_telegram_secret or "", expected):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid Telegram webhook secret")
+    try:
+        await app.state.telegram.handle(payload)
+    except TelegramError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "Telegram delivery failed"
+        ) from exc
+    return {"ok": True}

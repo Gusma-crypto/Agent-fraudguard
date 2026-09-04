@@ -210,3 +210,19 @@ class CoreClient:
             f"{self.api_prefix}/capabilities/{arguments['name']}",
             trace_id=trace_id,
         )
+
+    async def get_channel_consent(self, channel: str, subject_ref: str) -> dict[str, Any]:
+        return await self.request(
+            "GET", f"{self.api_prefix}/channel-consents/{channel}/{subject_ref}"
+        )
+
+    async def update_channel_consent(
+        self, payload: dict[str, Any], trace_id: str | None = None
+    ) -> dict[str, Any]:
+        return await self.request(
+            "PUT",
+            f"{self.api_prefix}/channel-consents",
+            payload,
+            trace_id=trace_id,
+            idempotency_key=f"channel-consent:{payload['event_ref']}",
+        )

@@ -4,6 +4,22 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 
 ## Status saat ini
 
+### Telegram consent adapter — 2026-09-05
+
+- Area: OpenClaw Bridge, Core client, channel session model, runtime policy, Docker env,
+  operator setup, and tests.
+- Flow: Telegram webhook → consent check in Core → OpenClaw primary skill → typed Core
+  tools → authoritative result → Telegram response.
+- Consent is fail-closed. Before `GRANTED`, message content is not analyzed or persisted
+  and the user must resend it. Groups require `/cek`, `/analisis`, mention, or bot reply.
+- Core receives only HMAC pseudonyms (`ch_*`, `evt_*`), not raw Telegram user/chat IDs.
+- Validation: Agent Ruff passed, 50 tests passed in the Docker test image, the runtime
+  image built successfully, and its webhook setup CLI is present.
+- Remaining deployment check: apply Core migration, rebuild Agent Bridge, register the
+  real HTTPS webhook, and run one synthetic end-to-end message on the VPS.
+- WhatsApp remains a future official Business API adapter; only the shared Core channel
+  consent contract is prepared.
+
 - **Tanggal:** 2 September 2026
 - **Tahap:** agent conversation/reasoning/orchestration terpisah dari Core; deployment VPS belum dijalankan.
 - **Kompetisi:** AI HackFest 2026, Batch 1, periode VPS 1–5 September 2026.

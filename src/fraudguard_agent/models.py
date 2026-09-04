@@ -49,7 +49,7 @@ class ConversationState(StrEnum):
 
 class SessionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    channel: Literal["web", "api", "openclaw", "mobile", "whatsapp"] = "web"
+    channel: Literal["web", "api", "openclaw", "mobile", "telegram", "whatsapp"] = "web"
 
 
 class ChatRequest(BaseModel):

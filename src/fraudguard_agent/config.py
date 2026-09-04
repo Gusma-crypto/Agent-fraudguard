@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     openclaw_gateway_token: str = ""
     openclaw_agent_id: str = "fraudguard"
     openclaw_timeout_seconds: float = Field(default=60, gt=0, le=180)
+    telegram_enabled: bool = False
+    telegram_bot_token: SecretStr = SecretStr("")
+    telegram_webhook_secret: SecretStr = SecretStr("")
+    telegram_subject_hmac_key: SecretStr = SecretStr("")
+    telegram_bot_username: str = ""
+    telegram_consent_policy_version: str = "telegram-consent-v1"
+    telegram_rate_limit_per_minute: int = Field(default=10, ge=1, le=60)
 
     @property
     def production(self) -> bool:
@@ -53,6 +60,21 @@ class Settings(BaseSettings):
             raise ValueError("Only the deterministic provider is configured in this deployment")
         if self.agent_runtime == "openclaw" and self.production and not self.openclaw_gateway_token:
             raise ValueError("OPENCLAW_GATEWAY_TOKEN is required for the OpenClaw bridge")
+        if self.telegram_enabled:
+            secret_values = {
+                "TELEGRAM_BOT_TOKEN": self.telegram_bot_token.get_secret_value(),
+                "TELEGRAM_WEBHOOK_SECRET": self.telegram_webhook_secret.get_secret_value(),
+                "TELEGRAM_SUBJECT_HMAC_KEY": self.telegram_subject_hmac_key.get_secret_value(),
+            }
+            missing = [name for name, value in secret_values.items() if not value]
+            if missing:
+                raise ValueError(f"Telegram integration requires: {', '.join(missing)}")
+            if len(secret_values["TELEGRAM_WEBHOOK_SECRET"].encode()) < 32:
+                raise ValueError("TELEGRAM_WEBHOOK_SECRET must contain at least 32 bytes")
+            if len(secret_values["TELEGRAM_SUBJECT_HMAC_KEY"].encode()) < 32:
+                raise ValueError("TELEGRAM_SUBJECT_HMAC_KEY must contain at least 32 bytes")
+            if not self.telegram_bot_username:
+                raise ValueError("TELEGRAM_BOT_USERNAME is required when Telegram is enabled")
         if self.agent_replicas > 1:
             raise ValueError(
                 "Horizontal scaling requires a shared Redis session store; in-memory sessions "

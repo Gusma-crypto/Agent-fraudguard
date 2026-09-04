@@ -121,6 +121,23 @@ Production saat ini harus memakai satu replica karena session conversation disim
 in-memory dengan TTL. Untuk horizontal scaling, tambahkan shared Redis session store
 dengan TTL dan locking/version check; sticky session saja tidak cukup saat failover.
 
+## Demo Telegram dengan persetujuan
+
+1. Buka private chat bot dan kirim `/start`.
+2. Baca pemberitahuan privasi, lalu pilih **Setuju** atau **Tolak**.
+3. Setelah setuju, kirim ulang atau forward pesan mencurigakan. Pesan yang memicu
+   dialog persetujuan pertama tidak dianalisis otomatis.
+4. Bot menampilkan risk, policy, red flags, rekomendasi, dan trace yang benar-benar
+   dikembalikan Core. Jika dependency gagal, hasil ditandai belum tersedia.
+5. Gunakan `/privacy` untuk melihat batas pemrosesan, `/help` untuk petunjuk, dan
+   `/revoke` untuk mencabut persetujuan.
+
+Di grup, panggil `/cek <pesan>`, reply pesan target dengan `/cek`, gunakan `/analisis`,
+atau mention bot. Percakapan grup biasa, channel post, pesan bot lain, dan pesan tanpa
+trigger diabaikan. Jangan pernah mengirim OTP, PIN, CVV, password, token, atau private
+key. Integrasi WhatsApp belum aktif; desain consent Core dibuat generik agar adapter
+resmi WhatsApp Business dapat ditambahkan kemudian.
+
 ## Intelligence multi-entity
 
 Untuk memeriksa satu pesan yang berisi beberapa entity, kirim melalui

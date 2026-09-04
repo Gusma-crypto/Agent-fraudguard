@@ -303,6 +303,49 @@ ganda, lalu membuat atau memperbarui file hanya jika workspace mengizinkan. Ia t
 boleh menciptakan endpoint, score, policy, atau permission baru. Instruksi lengkap ada
 di [skills/skill-creator/SKILL.md](skills/skill-creator/SKILL.md).
 
+## Telegram demo (explicit consent)
+
+Telegram is served by the OpenClaw Bridge at
+`POST /telegram/v1/webhook`. The endpoint verifies Telegram's
+`X-Telegram-Bot-Api-Secret-Token`; it does not accept the public browser Agent key.
+Private messages require explicit consent. Group messages are ignored unless they use
+`/cek`, `/analisis`, mention the configured bot, or reply to the bot. Before consent,
+case content is neither sent to OpenClaw/Core nor persisted; the user must resend it
+after choosing **Setuju**.
+
+Core stores only an HMAC-pseudonymous channel subject, consent state/version/expiry,
+and an audit event. Raw Telegram user/chat IDs and the pre-consent message are not sent
+to Core. The same generic Core contract already reserves `WHATSAPP` as a future adapter;
+no WhatsApp transport is implemented yet.
+
+Generate different server-side secrets (do not commit their output):
+
+```bash
+openssl rand -hex 32
+openssl rand -hex 32
+```
+
+Set the first value as `TELEGRAM_WEBHOOK_SECRET`, the second as
+`TELEGRAM_SUBJECT_HMAC_KEY`, and set `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_BOT_USERNAME`, and `TELEGRAM_ENABLED=true` in the Agent `.env`. The Agent's
+Core key must be present in `FRAUDGUARD_CORE_API_KEY`; the current root provisioning key
+already satisfies the required `consents:read` and `consents:write` scopes. Never expose
+any of these values through `NEXT_PUBLIC_*`.
+
+After rebuilding/restarting the `bridge`, register the public webhook from inside the
+container so the bot token stays in its environment:
+
+```bash
+docker compose --env-file .env -f Docker/compose.yml up -d --build bridge
+docker compose --env-file .env -f Docker/compose.yml exec bridge python -m fraudguard_agent.telegram_setup set --url https://fraudguard.my.id/telegram/v1/webhook
+docker compose --env-file .env -f Docker/compose.yml exec bridge python -m fraudguard_agent.telegram_setup info
+```
+
+Keep BotFather privacy mode enabled for groups. Test `/start`, choose **Setuju**, resend
+a synthetic suspicious message, then test `/revoke`. A valid Core result includes a real
+trace ID; if OpenClaw/Core is unavailable the bot returns a conservative review message
+without inventing a risk score.
+
 ## Quality
 
 ```bash

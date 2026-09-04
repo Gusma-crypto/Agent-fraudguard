@@ -4,6 +4,21 @@ All notable workspace, product, configuration, and documentation changes are rec
 
 ## Unreleased
 
+### Added — 2026-09-05
+
+- Added a consent-gated Telegram webhook to the OpenClaw Bridge for private messages,
+  explicit group commands/mentions/replies, consent callbacks, revocation, rate limiting,
+  idempotent update handling, and fail-closed dependency behavior.
+- Added HMAC-pseudonymous channel identifiers and Core consent read/write integration;
+  raw Telegram user/chat IDs are not sent to Core.
+- Added a server-side webhook setup CLI and Telegram unit coverage.
+
+### Security — 2026-09-05
+
+- Kept Telegram, OpenClaw, Agent, and Core credentials outside browser configuration.
+- Replaced a secret-shaped OpenClaw token in the Docker example with a placeholder.
+- Documented consent enforcement in the deployable OpenClaw runtime contract.
+
 ### Dedicated OpenClaw runtime workspace - 2026-09-04
 
 - Added managed production templates for `AGENTS.md`, `SOUL.md`, `IDENTITY.md`,
