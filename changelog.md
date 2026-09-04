@@ -17,6 +17,8 @@ All notable workspace, product, configuration, and documentation changes are rec
 - Expanded the deployed `AGENTS.md` with Core-result integrity, single-assessment loop
   prevention, evidence/session/memory rules, runtime file protection, fail-closed output,
   and safe user-facing presentation guidance.
+- Fixed the repository ignore rules so the managed `openclaw-workspace/USER.md` runtime
+  template is included in Git clones and VPS deployments.
 
 ### OpenClaw-only orchestration bridge - 2026-09-04
 

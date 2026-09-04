@@ -185,6 +185,10 @@ duplikasi skill/provider call, menjaga nilai Core apa adanya, mengisolasi sessio
 memory, serta membuat file runtime read-only selama penanganan kasus. CLI fallback hanya
 untuk data sintetis/masked karena argument command dapat terlihat di process list.
 
+Jika installer melaporkan `Missing runtime source: openclaw-workspace/USER.md`, checkout
+VPS belum memuat seluruh template runtime. Pastikan commit terbaru berisi file tersebut
+dengan `git ls-files openclaw-workspace/USER.md`, lalu pull ulang sebelum instalasi.
+
 CLI dipasang sebagai `<workspace>/tools/fraudguard-agent` dan hanya mengakses endpoint
 agent yang telah dibatasi. Siapkan path CLI dan periksa komunikasi:
 

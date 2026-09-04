@@ -98,6 +98,10 @@ Sesudah update repository di VPS, jalankan `./deploy.sh update`, kemudian
 Installer menyimpan skill lama dalam `.fraudguard-backups/<timestamp>` sehingga update
 dapat diaudit dan dipulihkan secara manual bila diperlukan.
 
+Pesan `Missing runtime source: openclaw-workspace/USER.md` berarti paket source di VPS
+belum lengkap, bukan error OpenClaw atau Core. Operator harus memperbarui repository dan
+memastikan template `USER.md` sudah terlacak Git sebelum menjalankan installer kembali.
+
 Untuk belajar membuat skill, jalankan installer dengan `--with-creator`, buka session
 OpenClaw baru, lalu tulis misalnya `Buat skill dari capability fraud-detection v1`.
 `skill-creator` hanya untuk development: ia memeriksa kontrak Core, mencegah duplikasi,

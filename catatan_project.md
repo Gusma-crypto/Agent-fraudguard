@@ -33,6 +33,9 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   karena bertentangan dengan boundary produksi.
 - Validasi lokal final: 41 test lulus, Ruff bersih, Python compile berhasil, shell syntax
   valid, installer idempotent, dan `git diff --check` bersih.
+- Perbaikan deployment: aturan global `.gitignore` untuk `USER.md` sebelumnya membuat
+  `openclaw-workspace/USER.md` tidak ikut commit. Pengecualian khusus sekarang memastikan
+  ketujuh root contract tersedia setelah clone/pull di VPS.
 - Risiko tersisa: binding agent `fraudguard` ke workspace dan panggilan model nyata harus
   diverifikasi pada VPS; kegagalan provider/model harus tetap terlihat dan fail closed.
 
