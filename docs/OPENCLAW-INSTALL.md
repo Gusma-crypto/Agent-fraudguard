@@ -25,6 +25,16 @@ chmod +x scripts/install_openclaw.sh scripts/fraudguard_agent_cli.py
 ./scripts/install_openclaw.sh
 ```
 
+## Sandbox runtime
+
+Atur tiga setting ini secara independen agar agent berjalan terisolasi di Docker:
+
+```bash
+openclaw config set agents.defaults.sandbox.mode non-main
+openclaw config set agents.defaults.sandbox.scope agent
+openclaw config set agents.defaults.sandbox.backend docker
+```
+
 Installer membaca workspace dari:
 
 ```bash

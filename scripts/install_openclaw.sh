@@ -86,6 +86,17 @@ if [[ -z "$workspace" || "$workspace" != /* ]]; then
   exit 1
 fi
 
+# Configure the three sandbox dimensions independently for every agent.
+configure_sandbox() {
+  command -v openclaw >/dev/null || { echo "OpenClaw CLI not found; sandbox settings were not applied." >&2; return 0; }
+  openclaw "${openclaw_args[@]}" config set agents.defaults.sandbox.mode non-main
+  openclaw "${openclaw_args[@]}" config set agents.defaults.sandbox.scope agent
+  openclaw "${openclaw_args[@]}" config set agents.defaults.sandbox.backend docker
+  echo "Sandbox configured: mode=non-main scope=agent backend=docker"
+}
+
+configure_sandbox
+
 skills=(
   fraud-detection
   safety-payment
