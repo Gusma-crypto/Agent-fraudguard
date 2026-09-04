@@ -31,11 +31,15 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   bukti aman/fraud, isolasi session/memory, read-only case runtime, dan format hasil.
   Aturan heartbeat proaktif, self-modification, dan pemanggilan CLI `chat` tidak diambil
   karena bertentangan dengan boundary produksi.
-- Validasi lokal final: 41 test lulus, Ruff bersih, Python compile berhasil, shell syntax
+- Validasi lokal final: 42 test lulus, Ruff bersih, Python compile berhasil, shell syntax
   valid, installer idempotent, dan `git diff --check` bersih.
 - Perbaikan deployment: aturan global `.gitignore` untuk `USER.md` sebelumnya membuat
   `openclaw-workspace/USER.md` tidak ikut commit. Pengecualian khusus sekarang memastikan
   ketujuh root contract tersedia setelah clone/pull di VPS.
+- Audit VPS menunjukkan `openclaw skills check` masih berjalan sebagai `Agent: main` dan
+  menampilkan katalog global. Default Bridge telah diubah menjadi agent `fraudguard`;
+  operator perlu menetapkan allowlist lima skill pada entry agent tersebut. Skill global
+  seperti `malicious-url` tidak perlu dihapus karena akan terisolasi oleh allowlist.
 - Risiko tersisa: binding agent `fraudguard` ke workspace dan panggilan model nyata harus
   diverifikasi pada VPS; kegagalan provider/model harus tetap terlihat dan fail closed.
 

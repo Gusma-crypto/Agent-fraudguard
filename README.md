@@ -67,7 +67,7 @@ Set environment Agent tanpa menaruh token di frontend:
 AGENT_RUNTIME=openclaw
 OPENCLAW_GATEWAY_URL=http://host.docker.internal:18789
 OPENCLAW_GATEWAY_TOKEN=<gateway-token>
-OPENCLAW_AGENT_ID=main
+OPENCLAW_AGENT_ID=fraudguard
 OPENCLAW_BRIDGE_PORT=3100
 ```
 
@@ -184,6 +184,10 @@ troubleshooting tersedia di [docs/OPENCLAW-INSTALL.md](docs/OPENCLAW-INSTALL.md)
 duplikasi skill/provider call, menjaga nilai Core apa adanya, mengisolasi session dan
 memory, serta membuat file runtime read-only selama penanganan kasus. CLI fallback hanya
 untuk data sintetis/masked karena argument command dapat terlihat di process list.
+
+Bridge harus memakai `OPENCLAW_AGENT_ID=fraudguard`; nilai `main` akan mengarahkan
+frontend ke agent utama beserta katalog skill globalnya. Batasi `agents.list[INDEX].skills`
+untuk agent `fraudguard` ke lima slug produksi sebagaimana dijelaskan pada panduan install.
 
 Jika installer melaporkan `Missing runtime source: openclaw-workspace/USER.md`, checkout
 VPS belum memuat seluruh template runtime. Pastikan commit terbaru berisi file tersebut

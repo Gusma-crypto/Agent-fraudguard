@@ -212,10 +212,11 @@ if [[ $changed -eq 0 ]]; then
   echo "No files changed. Installation is already current."
 fi
 if [[ ${#openclaw_args[@]} -gt 0 ]]; then
-  echo "Validate with: openclaw ${openclaw_args[*]} skills info fraud-detection"
+  echo "Validate source with: openclaw ${openclaw_args[*]} skills info fraud-detection"
 else
-  echo "Validate with: openclaw skills info fraud-detection"
+  echo "Validate source with: openclaw skills info fraud-detection"
 fi
 echo "Test bridge:  ${workspace}/tools/fraudguard-agent health"
 echo "Global OpenClaw config was not changed. Bind this workspace to agent 'fraudguard' separately."
+echo "Set Bridge environment: OPENCLAW_AGENT_ID=fraudguard"
 echo "Open a new OpenClaw session after installation so the skill snapshot refreshes."

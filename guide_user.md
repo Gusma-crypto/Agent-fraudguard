@@ -102,6 +102,11 @@ Pesan `Missing runtime source: openclaw-workspace/USER.md` berarti paket source 
 belum lengkap, bukan error OpenClaw atau Core. Operator harus memperbarui repository dan
 memastikan template `USER.md` sudah terlacak Git sebelum menjalankan installer kembali.
 
+Output `Skills Status Check` dengan `Agent: main` bukan verifikasi agent FraudGuard.
+Deployment harus menargetkan `OPENCLAW_AGENT_ID=fraudguard` dan memasang allowlist lima
+skill pada konfigurasi agent tersebut. Skill bundled yang kekurangan dependency tidak
+perlu dipasang selama tidak digunakan oleh FraudGuard.
+
 Untuk belajar membuat skill, jalankan installer dengan `--with-creator`, buka session
 OpenClaw baru, lalu tulis misalnya `Buat skill dari capability fraud-detection v1`.
 `skill-creator` hanya untuk development: ia memeriksa kontrak Core, mencegah duplikasi,

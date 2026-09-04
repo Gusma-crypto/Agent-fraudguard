@@ -19,6 +19,9 @@ All notable workspace, product, configuration, and documentation changes are rec
   and safe user-facing presentation guidance.
 - Fixed the repository ignore rules so the managed `openclaw-workspace/USER.md` runtime
   template is included in Git clones and VPS deployments.
+- Changed the Bridge default agent from `main` to the isolated `fraudguard` agent and
+  documented its five-skill per-agent allowlist, agent-aware verification, and harmless
+  bundled-skill missing-requirement statuses.
 
 ### OpenClaw-only orchestration bridge - 2026-09-04
 

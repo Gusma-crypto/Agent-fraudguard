@@ -77,6 +77,32 @@ openclaw agents set-identity \
   --from-identity
 ```
 
+Batasi skill pada agent `fraudguard`. Pertama cari indeks agent tanpa mengubah config:
+
+```bash
+openclaw config get agents.list --json
+```
+
+Indeks array dimulai dari `0`. Cari object dengan `"id": "fraudguard"`, ganti `INDEX`
+di bawah dengan indeks object tersebut, lalu lakukan dry-run dan
+set nilai yang sama. Ini adalah allowlist khusus agent; skill global tidak perlu dihapus:
+
+```bash
+openclaw config set 'agents.list[INDEX].skills' \
+  '["fraud-detection","safety-payment","realtime-intervention","social-engineering","intelligence-search"]' \
+  --strict-json --dry-run
+
+openclaw config set 'agents.list[INDEX].skills' \
+  '["fraud-detection","safety-payment","realtime-intervention","social-engineering","intelligence-search"]' \
+  --strict-json
+```
+
+Pastikan environment Bridge juga menargetkan agent khusus:
+
+```env
+OPENCLAW_AGENT_ID=fraudguard
+```
+
 ## Sandbox runtime
 
 Aktifkan OpenResponses dan bind Gateway hanya ke loopback plus interface private Docker:
@@ -141,7 +167,9 @@ dipindahkan terlebih dahulu ke:
 <openclaw-workspace>/.fraudguard-backups/<timestamp>/
 ```
 
-Verifikasi semua skill dan koneksi Agent:
+Verifikasi semua skill dan koneksi Agent. `skills check` tanpa pemilihan agent dapat
+menampilkan `Agent: main` dan katalog global; pada versi yang mendukung opsi agent,
+gunakan pemeriksaan kedua di bawah:
 
 ```bash
 openclaw skills info fraud-detection
@@ -150,6 +178,8 @@ openclaw skills info realtime-intervention
 openclaw skills info intelligence-search
 openclaw skills info social-engineering
 openclaw skills check
+# Jalankan ini hanya jika `openclaw skills check --help` menampilkan opsi --agent:
+openclaw skills check --agent fraudguard
 
 OPENCLAW_WORKSPACE=/root/.openclaw/workspace-fraudguard
 FRAUDGUARD_CLI="$OPENCLAW_WORKSPACE/tools/fraudguard-agent"
@@ -210,6 +240,12 @@ openclaw skills check
 
 Jika skill baru belum muncul, buka session OpenClaw baru. Restart Gateway hanya jika
 workspace watcher atau environment credential belum ter-refresh.
+
+`Missing requirements` untuk skill bundled yang tidak dipakai bukan kegagalan FraudGuard.
+Yang wajib adalah lima skill FraudGuard berstatus eligible untuk agent `fraudguard`.
+Gunakan `openclaw skills info malicious-url` untuk melihat lokasi source jika nama lama
+masih muncul; jangan hapus skill global tersebut jika dipakai agent lain. Allowlist
+per-agent harus membuatnya excluded dari agent FraudGuard.
 
 Jika OpenClaw meminta persetujuan eksekusi, izinkan hanya executable workspace
 `tools/fraudguard-agent`. Jangan memberi allowlist shell, `curl`, atau generic HTTP

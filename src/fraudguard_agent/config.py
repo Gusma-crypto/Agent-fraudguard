@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     agent_cors_origins: str = "http://localhost:3000"
     openclaw_gateway_url: str = "http://host.docker.internal:18789"
     openclaw_gateway_token: str = ""
-    openclaw_agent_id: str = "main"
+    openclaw_agent_id: str = "fraudguard"
     openclaw_timeout_seconds: float = Field(default=60, gt=0, le=180)
 
     @property

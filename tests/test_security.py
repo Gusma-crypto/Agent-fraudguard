@@ -1,7 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
+from fraudguard_agent.config import Settings
 from fraudguard_agent.models import ChatRequest, ToolExecutionRequest
+
+
+def test_openclaw_bridge_defaults_to_isolated_fraudguard_agent() -> None:
+    assert Settings().openclaw_agent_id == "fraudguard"
 
 
 def test_chat_rejects_secret_fields() -> None:
