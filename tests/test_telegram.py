@@ -1,10 +1,16 @@
+import asyncio
 import uuid
 from typing import Any
 
 import pytest
 
 from fraudguard_agent.config import Settings
-from fraudguard_agent.telegram import TelegramProcessor, format_result, parse_update
+from fraudguard_agent.telegram import (
+    TelegramError,
+    TelegramProcessor,
+    format_result,
+    parse_update,
+)
 from fraudguard_agent.telegram_setup import commands_payload, webhook_payload
 
 
@@ -145,6 +151,39 @@ async def test_consented_message_calls_openclaw_once() -> None:
     assert api.chat_actions == [(123456789, "typing")]
     assert "HIGH" in api.edits[0]["text"]
     assert "TEMPORARY_HOLD" in api.edits[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_typing_indicator_retries_after_transient_telegram_failure() -> None:
+    core = FakeCore("GRANTED")
+
+    class FlakyTelegramApi(FakeTelegramApi):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts = 0
+
+        async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise TelegramError("temporary failure")
+            await super().send_chat_action(chat_id, action)
+
+    api = FlakyTelegramApi()
+
+    async def analyze(*args: Any):
+        await asyncio.sleep(0.04)
+        return {
+            "trace_id": "trace-typing",
+            "risk": {"score": 50, "level": "MEDIUM"},
+            "policy": {"decision": "REVIEW"},
+        }
+
+    processor = TelegramProcessor(settings(), core, api, analyze)
+    processor.TYPING_REFRESH_SECONDS = 0.01
+    await processor.handle(message_update("Periksa pesan ini", update_id=31))
+
+    assert api.attempts >= 2
+    assert api.chat_actions
 
 
 @pytest.mark.asyncio

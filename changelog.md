@@ -50,6 +50,8 @@ All notable workspace, product, configuration, and documentation changes are rec
 - Telegram results now use Indonesian risk, policy, signal, recommendation, and dependency
   failure wording. Shortened URLs explicitly distinguish an unverified destination from a
   provider-observed failed HTTP response.
+- Telegram's native `typing` action now refreshes every three seconds, retries after a
+  transient Bot API failure, and records secret-free start/stop/failure diagnostics.
 
 ### Dedicated OpenClaw runtime workspace - 2026-09-04
 

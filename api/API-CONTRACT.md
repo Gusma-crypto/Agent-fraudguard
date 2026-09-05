@@ -44,9 +44,11 @@ meminta pengguna Telegram membuat ID teknis.
 
 Command tanpa teks/reply hanya menghasilkan petunjuk input. Setelah consent lolos,
 Bridge mengirim satu pesan progres dan mengedit pesan yang sama menjadi hasil akhir;
-Bridge juga mengirim `sendChatAction(typing)` secara berkala selama call berlangsung.
-Chat action bersifat presentasi sementara, bukan progress authoritative, evidence, atau
-decision. Raw Telegram user/chat ID diubah menjadi HMAC
+Bridge juga mengirim `sendChatAction(typing)` setiap tiga detik selama call berlangsung.
+Kegagalan sementara dicatat tanpa identifier/content dan dicoba lagi sampai analisis
+selesai. Chat action bersifat presentasi sementara, bukan progress authoritative,
+evidence, atau decision; Telegram client boleh tidak merender indikatornya. Raw Telegram
+user/chat ID diubah menjadi HMAC
 pseudonym; credential Telegram tidak pernah menjadi bagian dari response, log aplikasi,
 atau konfigurasi frontend.
 

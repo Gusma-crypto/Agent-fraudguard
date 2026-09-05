@@ -62,7 +62,9 @@ Bot menampilkan satu pesan loading lalu mengeditnya menjadi hasil Core. Jangan m
 nilai score atau policy tertentu. Tunjukkan signal, rekomendasi, dan trace ID yang benar-benar
 dikembalikan saat demo.
 Selama analisis, indikator mengetik berupa titik-titik muncul di bagian atas chat dan
-diperbarui berkala sampai hasil atau fallback tersedia.
+diperbarui setiap tiga detik sampai hasil atau fallback tersedia. Jika Bot API gagal
+sementara, Bridge mencoba kembali. Telegram client dapat memilih tidak menampilkan
+animasi native; pesan loading tetap menjadi indikator proses yang dapat direkam.
 
 ### 3. Intelligence
 

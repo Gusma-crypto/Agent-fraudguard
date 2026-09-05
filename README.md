@@ -371,8 +371,11 @@ yang sama diedit menjadi hasil akhir. Ini menjaga progres tetap terlihat tanpa m
 deretan pesan status. Bila model/dependency gagal, pesan progres diganti dengan fallback
 `UNKNOWN/PENDING`, bukan dibiarkan sebagai hasil palsu.
 Selama proses berlangsung, Bridge juga memperbarui native Telegram `typing` chat action
-setiap empat detik. Pengguna akan melihat indikator titik-titik di bagian atas chat;
-indikator berhenti otomatis ketika analisis selesai atau dibatalkan.
+setiap tiga detik dan mencoba kembali bila Bot API sempat gagal. Telegram client menentukan
+apakah indikator titik-titik ditampilkan di bagian atas chat; bot tidak dapat memaksa UI
+client. Pesan `Analisis sedang berlangsung` menjadi fallback visual yang selalu tersedia.
+Indikator berhenti otomatis ketika analisis selesai atau dibatalkan. Log Bridge mencatat
+start/stop/failure tanpa chat ID atau isi pesan.
 
 Keep BotFather privacy mode enabled for groups. Test `/start`, choose **Setuju**, resend
 a synthetic suspicious message, then test `/revoke`. A valid Core result includes a real

@@ -149,7 +149,9 @@ Tambahkan teks setelah command atau reply pesan target dengan command tersebut. 
 consent valid, bot menampilkan satu pesan loading sesuai skill. Pesan loading itu akan
 diperbarui menjadi hasil akhir sehingga progres terlihat tanpa memenuhi chat dengan
 banyak pesan. Selama pemrosesan, Telegram juga menampilkan indikator mengetik berupa
-titik-titik di bagian atas chat. Indikator berhenti otomatis saat hasil tersedia. Menu
+titik-titik di bagian atas chat dan bot memperbaruinya setiap tiga detik. Tampilan native
+ini bergantung pada versi/client Telegram; jika tidak terlihat, pesan loading tetap menjadi
+indikator bahwa proses berjalan. Indikator berhenti otomatis saat hasil tersedia. Menu
 mempermudah pemilihan fungsi, tetapi tidak melewati persetujuan.
 
 Operator dapat mengikuti runbook yang terpasang di

@@ -53,7 +53,11 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   Core codes in parentheses. A shortlink is explained as hiding its final destination;
   “provider mencatat respons gagal” is shown only when provider evidence contains
   `URL_UNREACHABLE`.
-- Validation: complete Agent suite passed (61 tests) and Ruff passed in the Docker test image.
+- Native Telegram typing was hardened: refresh interval is three seconds, an initial or
+  periodic transient API error no longer disables subsequent attempts, and lifecycle logs
+  contain no chat identifier or message content. Telegram clients still control whether
+  the top-bar animation is rendered.
+- Validation: complete Agent suite passed (62 tests) and Ruff passed in the Docker test image.
 
 - **Tanggal:** 2 September 2026
 - **Tahap:** agent conversation/reasoning/orchestration terpisah dari Core; deployment VPS belum dijalankan.

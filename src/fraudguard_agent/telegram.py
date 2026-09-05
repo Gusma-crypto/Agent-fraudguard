@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import hmac
 import html
+import logging
 import re
 import time
 import uuid
@@ -17,6 +18,8 @@ import httpx
 
 from .config import Settings
 from .core_client import CoreClient, CoreError
+
+logger = logging.getLogger(__name__)
 
 Analyze = Callable[[str, uuid.UUID, dict[str, Any]], Awaitable[dict[str, Any]]]
 
@@ -366,6 +369,8 @@ def format_result(result: dict[str, Any]) -> str:
 
 
 class TelegramProcessor:
+    TYPING_REFRESH_SECONDS = 3.0
+
     def __init__(
         self,
         settings: Settings,
@@ -488,11 +493,13 @@ class TelegramProcessor:
 
     async def _keep_typing(self, chat_id: int) -> None:
         while True:
-            await asyncio.sleep(4)
+            await asyncio.sleep(self.TYPING_REFRESH_SECONDS)
             try:
                 await self.api.send_chat_action(chat_id)
             except TelegramError:
-                return
+                # A short Telegram API/network failure must not permanently
+                # disable the indicator for a long-running analysis.
+                logger.warning("Telegram typing indicator refresh failed; retrying")
 
     async def handle(self, payload: dict[str, Any]) -> dict[str, str]:
         event = parse_update(payload)
@@ -648,9 +655,9 @@ class TelegramProcessor:
             try:
                 await self.api.send_chat_action(event.chat_id)
             except TelegramError:
-                pass
-            else:
-                typing_task = asyncio.create_task(self._keep_typing(event.chat_id))
+                logger.warning("Telegram typing indicator start failed; refresh will retry")
+            typing_task = asyncio.create_task(self._keep_typing(event.chat_id))
+            logger.info("Telegram typing indicator started")
             try:
                 result = await self.analyze(
                     text,
@@ -675,6 +682,7 @@ class TelegramProcessor:
                     typing_task.cancel()
                     with suppress(asyncio.CancelledError):
                         await typing_task
+                    logger.info("Telegram typing indicator stopped")
             intervention_id = result.get("intervention_id")
             try:
                 normalized_intervention_id = str(uuid.UUID(str(intervention_id)))
