@@ -1,5 +1,14 @@
 # Panduan Pengguna FraudGuard AI Agent
 
+## Progress analisis web
+
+Frontend membuka `/agent/v1/chat/stream` dan membaca event NDJSON. Urutan ringkasnya adalah
+input diterima, skill dipilih, entity diekstrak, internal diperiksa, provider berjalan,
+evidence dinormalisasi, keputusan Core siap, lalu penjelasan OpenClaw selesai. Saat
+`core_result` tiba, risk/policy langsung ditampilkan tanpa menunggu narasi model. Jika route
+stream belum tersedia pada deployment lama, frontend otomatis memakai `/agent/v1/chat`.
+Jika skill dipilih otomatis, field `selected_skill` menunjukkan skill yang benar-benar dipakai.
+
 ## Uji alur OpenClaw, Core, Telegram, dan web
 
 Gunakan satu pesan yang memiliki URL, nomor telepon, rekening, nominal, dan pola manipulasi.

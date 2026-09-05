@@ -1,5 +1,14 @@
 # Catatan Proyek FraudGuard AI
 
+## Streaming keputusan Core — 2026-09-05
+
+- Web tidak lagi harus menunggu dua pekerjaan secara serial: event `core_result` dikirim
+  segera setelah typed Core tool selesai, sedangkan narasi OpenClaw menyusul sebagai `final`.
+- Progress berasal dari Bridge/Core flow, bukan timer simulasi frontend.
+- Route stream memakai auth Bridge yang sama, `Cache-Control: no-store`, dan tidak membawa
+  secret provider ke browser.
+- Auto-routing menyimpan skill yang benar-benar dipilih sebagai `selected_skill`.
+
 ## Sinkronisasi runtime lintas kanal — 2026-09-05
 
 - Jalur web dan Telegram sama-sama melalui OpenClaw Bridge lalu typed Core tools.

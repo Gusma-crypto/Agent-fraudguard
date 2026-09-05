@@ -81,8 +81,23 @@ fraudguard-agent tool-execute --name <allowlisted-tool> --arguments-json '<objec
 For frontend OpenResponses sessions, Bridge supplies the same schemas as client function
 tools and executes returned function calls against Core. This works without sandbox
 network access and keeps OpenClaw as the planner. The loopback tool adapter on port `3000`
-is a TUI/admin fallback; its legacy `/agent/v1/chat` route is not exposed by Caddy and
-must not be used by OpenClaw skills, preventing a second planner.
+is a TUI/admin fallback and must not be used by OpenClaw skills, preventing a second
+planner. Public web chat is served only by the Bridge on port `3100` through Caddy.
+
+Web clients should use authenticated `POST /agent/v1/chat/stream`. The response media type
+is `application/x-ndjson`; each line is one JSON event:
+
+```text
+progress     backend stage and status
+core_result  authoritative Core fields, available before model narration
+final        complete response including the OpenClaw explanation
+error        sanitized terminal stream error
+```
+
+`POST /agent/v1/chat` remains the non-streaming compatibility endpoint. Both routes accept
+the same `ChatRequest` and use the same Bridge authentication. A client must never derive
+risk or policy from `progress`; only `core_result` or `final` contains the authoritative
+decision.
 
 When Telegram explicitly selects `fraud-detection`, `social-engineering`, or
 `intelligence-search`, the Bridge requires a function call and limits that turn to

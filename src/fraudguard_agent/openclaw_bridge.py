@@ -6,15 +6,19 @@ the only authority for evidence, risk, policy, and protected decisions.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 import secrets
 import uuid
-from contextlib import asynccontextmanager
+from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager, suppress
 from typing import Annotated, Any
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from .config import get_settings
 from .core_client import CoreClient, CoreError
@@ -23,6 +27,7 @@ from .telegram import HttpTelegramApi, TelegramError, TelegramProcessor
 from .tools import ToolRegistry
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 ALLOWED_SKILLS = {
     "fraud-detection:v1",
@@ -54,6 +59,12 @@ DEFAULT_TOOLS = (
     "safety_payment",
     "submit_intervention_response",
 )
+TOOL_SKILLS = {
+    "fraud_analyze": "fraud-detection:v1",
+    "intelligence_lookup": "intelligence-search:v1",
+    "safety_payment": "safety-payment:v1",
+    "submit_intervention_response": "realtime-intervention:v1",
+}
 CORE_AUTHORITY_FIELDS = (
     "actions",
     "claims",
@@ -74,6 +85,7 @@ CORE_AUTHORITY_FIELDS = (
     "trace",
 )
 CORE_INTERNAL_FIELDS = ("ingestion", "provider_status", "routed_entities")
+ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 @asynccontextmanager
@@ -455,9 +467,25 @@ async def run_openclaw(
     payload: ChatRequest,
     *,
     accept_trusted_context: bool = False,
+    progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     session_id = payload.session_id or uuid.uuid4()
     requested_skill, input_type = normalized_context(payload.context)
+    resolved_skill = requested_skill
+
+    async def publish(event: dict[str, Any]) -> None:
+        if progress is not None:
+            await progress(event)
+
+    await publish({"type": "progress", "stage": "input_received", "status": "SUCCESS"})
+    await publish(
+        {
+            "type": "progress",
+            "stage": "skill_routing",
+            "status": "SUCCESS" if requested_skill else "RUNNING",
+            "skill": requested_skill,
+        }
+    )
     trusted_intervention_id = None
     trusted_external_payment_id = None
     if accept_trusted_context:
@@ -509,6 +537,7 @@ async def run_openclaw(
         permitted = set(SKILL_TOOLS.get(requested_skill, DEFAULT_TOOLS))
         for call in calls:
             name = str(call["name"])
+            resolved_skill = requested_skill or TOOL_SKILLS.get(name)
             raw_arguments = call.get("arguments", "{}")
             try:
                 arguments = (
@@ -520,15 +549,87 @@ async def run_openclaw(
                     raise ValueError("tool arguments must be an object")
                 if name not in permitted:
                     raise ValueError(f"Tool is not allowed for this skill: {name}")
+                await publish(
+                    {
+                        "type": "progress",
+                        "stage": "skill_routing",
+                        "status": "SUCCESS",
+                        "skill": resolved_skill,
+                    }
+                )
                 arguments = enforce_skill_arguments(
                     name, arguments, requested_skill, payload.message
                 )
                 cache_key = json.dumps([name, arguments], sort_keys=True, separators=(",", ":"))
                 result = call_cache.get(cache_key)
                 if result is None:
+                    await publish(
+                        {
+                            "type": "progress",
+                            "stage": "entity_extraction",
+                            "status": "RUNNING",
+                        }
+                    )
+                    await publish(
+                        {
+                            "type": "progress",
+                            "stage": "provider_calls",
+                            "status": "RUNNING",
+                        }
+                    )
                     result = await registry.execute(name, arguments, None)
                     call_cache[cache_key] = result
                     tool_results.append(result)
+                    result_data = result.get("data")
+                    provider_items = (
+                        result_data.get("providers", [])
+                        if isinstance(result_data, dict)
+                        else []
+                    )
+                    provider_stage_status = (
+                        "TIMEOUT"
+                        if any(
+                            isinstance(item, dict) and item.get("status") == "TIMEOUT"
+                            for item in provider_items
+                        )
+                        else "FAILED"
+                        if provider_items
+                        and not any(
+                            isinstance(item, dict) and item.get("status") == "SUCCESS"
+                            for item in provider_items
+                        )
+                        else "SUCCESS"
+                    )
+                    for stage, stage_status in (
+                        ("entity_extraction", "SUCCESS"),
+                        ("internal_intelligence", "SUCCESS"),
+                        ("provider_calls", provider_stage_status),
+                        ("evidence_normalization", "SUCCESS"),
+                        ("decision", "SUCCESS"),
+                    ):
+                        await publish(
+                            {"type": "progress", "stage": stage, "status": stage_status}
+                        )
+                    core_snapshot = authoritative_response(
+                        {}, tool_results, requested_skill
+                    )
+                    core_snapshot.update(
+                        {
+                            "message": "Keputusan Core siap. OpenClaw sedang menyusun penjelasan.",
+                            "status": "core_completed",
+                            "session_id": str(session_id),
+                            "orchestrator": "openclaw",
+                            "selected_skill": resolved_skill,
+                        }
+                    )
+                    await publish({"type": "core_result", "data": core_snapshot})
+                    await publish(
+                        {
+                            "type": "progress",
+                            "stage": "openclaw_explanation",
+                            "status": "RUNNING",
+                        }
+                    )
                 output = result
             except (json.JSONDecodeError, ValueError, CoreError) as exc:
                 output = {"error": {"message": str(exc), "type": "tool_error"}}
@@ -562,7 +663,7 @@ async def run_openclaw(
         normalized = {
             "message": text or "OpenClaw completed without a textual response.",
             "status": "completed",
-            "selected_skill": requested_skill,
+            "selected_skill": resolved_skill,
             "trace_id": None,
             "risk": {"score": None, "level": "UNKNOWN"},
             "policy": {"decision": "PENDING"},
@@ -579,7 +680,11 @@ async def run_openclaw(
     normalized["orchestrator"] = "openclaw"
     normalized.setdefault("message", text)
     normalized.setdefault("status", "completed")
-    normalized.setdefault("selected_skill", requested_skill)
+    if not normalized.get("selected_skill"):
+        normalized["selected_skill"] = resolved_skill
+    await publish(
+        {"type": "progress", "stage": "openclaw_explanation", "status": "SUCCESS"}
+    )
     return normalized
 
 
@@ -613,6 +718,64 @@ async def telegram_analysis(
 @app.post("/agent/v1/chat")
 async def chat(payload: ChatRequest, _: BridgeAuth) -> dict[str, Any]:
     return await run_openclaw(payload)
+
+
+@app.post("/agent/v1/chat/stream")
+async def chat_stream(payload: ChatRequest, _: BridgeAuth) -> StreamingResponse:
+    """Stream backend-owned progress and the Core decision before model narration."""
+
+    async def events():
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=32)
+
+        async def publish(event: dict[str, Any]) -> None:
+            await queue.put(event)
+
+        async def execute() -> None:
+            try:
+                result = await run_openclaw(payload, progress=publish)
+                await queue.put({"type": "final", "data": result})
+            except HTTPException as exc:
+                await queue.put(
+                    {
+                        "type": "error",
+                        "error": {
+                            "status": exc.status_code,
+                            "message": str(exc.detail),
+                        },
+                    }
+                )
+            except Exception:
+                logger.exception("Unexpected OpenClaw streaming failure")
+                await queue.put(
+                    {
+                        "type": "error",
+                        "error": {
+                            "status": status.HTTP_502_BAD_GATEWAY,
+                            "message": "OpenClaw streaming analysis failed",
+                        },
+                    }
+                )
+            finally:
+                await queue.put(None)
+
+        task = asyncio.create_task(execute())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                yield json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n"
+        finally:
+            if not task.done():
+                task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+    return StreamingResponse(
+        events(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/telegram/v1/webhook", include_in_schema=False)

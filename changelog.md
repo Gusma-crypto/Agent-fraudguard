@@ -1,5 +1,13 @@
 # Changelog
 
+## Core-first streaming — 2026-09-05
+
+- Added authenticated NDJSON streaming for backend progress.
+- Added early `core_result` delivery before OpenClaw explanation completion.
+- Added explicit skill-routing and OpenClaw-explanation progress stages.
+- Exposed the resolved automatic skill in streamed and final responses.
+- Kept the synchronous chat endpoint as a backward-compatible fallback.
+
 ## OpenClaw human explanation with Core authority — 2026-09-05
 
 - Required OpenClaw to select a relevant skill, call Core, and distinguish observation, claim,

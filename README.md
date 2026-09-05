@@ -1,5 +1,13 @@
 # FraudGuard AI Agent
 
+## Progressive web response (2026-09-05)
+
+The Bridge exposes `POST /agent/v1/chat/stream` as newline-delimited JSON. It emits bounded
+pipeline progress, sends a protected `core_result` as soon as Core returns risk and policy,
+then sends `final` after OpenClaw has written the explanation. The existing JSON chat route
+remains a compatibility fallback. Provider keys and Gateway/Core credentials remain
+server-side. Automatic tool routing is reflected as the resolved `selected_skill`.
+
 ## Unified OpenClaw path (2026-09-05)
 
 OpenClaw selects an installed protection skill and invokes a typed Core tool. Core performs

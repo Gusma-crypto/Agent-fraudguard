@@ -1,3 +1,10 @@
+import json
+
+import httpx
+import pytest
+
+import fraudguard_agent.openclaw_bridge as bridge
+from fraudguard_agent.models import ChatRequest
 from fraudguard_agent.openclaw_bridge import (
     ALLOWED_SKILLS,
     SKILL_TOOLS,
@@ -180,3 +187,80 @@ def test_internal_provider_queries_are_not_forwarded_to_channels() -> None:
     assert "provider_status" not in result
     assert "routed_entities" not in result
     assert result["providers"] == [{"name": "tavily", "status": "SUCCESS"}]
+
+
+@pytest.mark.asyncio
+async def test_stream_progress_exposes_core_result_before_openclaw_explanation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter(
+        [
+            httpx.Response(
+                200,
+                json={
+                    "id": "response-1",
+                    "output": [
+                        {
+                            "type": "function_call",
+                            "name": "intelligence_lookup",
+                            "call_id": "call-1",
+                            "arguments": "{}",
+                        }
+                    ],
+                },
+            ),
+            httpx.Response(
+                200,
+                json={
+                    "id": "response-2",
+                    "output_text": json.dumps(
+                        {"message": "Hasil Core menunjukkan verifikasi tambahan diperlukan."}
+                    ),
+                },
+            ),
+        ]
+    )
+
+    async def gateway_request(*args, **kwargs):
+        return next(responses)
+
+    class Registry:
+        async def execute(self, name, arguments, trace_id):
+            assert name == "intelligence_lookup"
+            return {
+                "trace_id": "core-trace",
+                "data": {
+                    "providers": [{"name": "tavily", "status": "SUCCESS"}],
+                    "risk": {"score": 70, "severity": "HIGH"},
+                    "policy": {"decision": "STEP_UP_VERIFY"},
+                },
+            }
+
+    monkeypatch.setattr(bridge, "gateway_request", gateway_request)
+    monkeypatch.setattr(bridge, "client_tools", lambda skill: [])
+    bridge.app.state.tools = Registry()
+    events: list[dict] = []
+
+    async def progress(event):
+        events.append(event)
+
+    result = await bridge.run_openclaw(
+        ChatRequest(
+            message="Periksa example.test",
+            context={
+                "requested_skill": "intelligence-search:v1",
+                "input_type": "DOMAIN",
+            },
+        ),
+        progress=progress,
+    )
+
+    core_index = next(index for index, event in enumerate(events) if event["type"] == "core_result")
+    explanation_done = next(
+        index
+        for index, event in enumerate(events)
+        if event.get("stage") == "openclaw_explanation" and event.get("status") == "SUCCESS"
+    )
+    assert core_index < explanation_done
+    assert events[core_index]["data"]["risk"]["score"] == 70
+    assert result["message"].startswith("Hasil Core")
