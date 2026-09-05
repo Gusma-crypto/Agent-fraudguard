@@ -7,7 +7,7 @@ Base path: `/agent/v1`. Ini berbeda dari Core `/api/v1`.
 - Public frontend traffic terminates at the OpenClaw Bridge on port `3100`.
 - `POST /chat` forwards the turn to private OpenClaw `POST /v1/responses`; OpenClaw is
   the only runtime that selects and sequences skills on this route.
-- `POST /sessions` dengan `{ "channel": "web" }`
+- `POST /sessions` dengan `{ "channel": "web" }` atau `{ "channel": "telegram" }`
 - `GET /sessions/{session_id}`
 - `DELETE /sessions/{session_id}`
 - `POST /chat` dengan `session_id`, `message`, dan optional non-sensitive `context`
@@ -16,6 +16,42 @@ Base path: `/agent/v1`. Ini berbeda dari Core `/api/v1`.
 The public response includes `orchestrator: "openclaw"` and a stable `session_id`.
 The browser may send only allowlisted `requested_skill` and `input_type` routing hints;
 unknown values are reduced to automatic routing and `MESSAGE`.
+
+## Telegram webhook
+
+Telegram menggunakan endpoint terpisah `POST /telegram/v1/webhook` pada OpenClaw Bridge.
+Endpoint ini bukan API browser dan tidak memakai `X-Agent-Key`; request harus membawa
+`X-Telegram-Bot-Api-Secret-Token` yang cocok dengan `TELEGRAM_WEBHOOK_SECRET` server-side.
+Bridge menerima update `message` dan `callback_query`, lalu menerapkan consent sebelum
+isi kasus diteruskan ke OpenClaw.
+
+Private chat memerlukan consent `GRANTED`. Di grup, hanya command skill, mention username
+bot, atau reply yang eksplisit yang diproses. Command dipetakan secara tetap:
+
+- `/cek` dan `/analisis` → `fraud-detection:v1`
+- `/bayar` → `safety-payment:v1`
+- `/intervensi` → `realtime-intervention:v1`
+- `/sosial` → `social-engineering:v1`
+- `/intelijen` → `intelligence-search:v1`
+
+Alias `/cek_nomor` dan `/cek_domain` memilih `intelligence-search:v1`; `/safety` memilih
+`safety-payment:v1`. Bridge mempertahankan `intervention_id` Core maksimal 30 menit per
+sesi Telegram. Hanya jalur internal Telegram yang dapat memberi
+`trusted_intervention_id` kepada instruksi OpenClaw; context browser dengan nama field
+yang sama tidak dipercaya. Jalur yang sama menghasilkan
+`trusted_external_payment_id=evt_<HMAC>` untuk memenuhi idempotensi payment check tanpa
+meminta pengguna Telegram membuat ID teknis.
+
+Command tanpa teks/reply hanya menghasilkan petunjuk input. Setelah consent lolos,
+Bridge mengirim satu pesan progres dan mengedit pesan yang sama menjadi hasil akhir;
+progress bukan evidence atau decision. Raw Telegram user/chat ID diubah menjadi HMAC
+pseudonym; credential Telegram tidak pernah menjadi bagian dari response, log aplikasi,
+atau konfigurasi frontend.
+
+Transport ini dimiliki FraudGuard OpenClaw Bridge. Jangan mengaktifkan consumer Telegram
+native OpenClaw dengan bot token/webhook yang sama karena dua consumer akan berebut
+update. OpenClaw tetap menjadi orchestrator melalui private `/v1/responses`, bukan pemilik
+webhook Telegram pada deployment ini.
 
 Jika `AGENT_ACCESS_KEY` dikonfigurasi, semua endpoint agent memerlukan `X-Agent-Key`.
 `tenant_id` dan `application_id` tidak diterima dari chat context.

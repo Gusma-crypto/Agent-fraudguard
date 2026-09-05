@@ -19,6 +19,29 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
   real HTTPS webhook, and run one synthetic end-to-end message on the VPS.
 - WhatsApp remains a future official Business API adapter; only the shared Core channel
   consent contract is prepared.
+- UX fix: `/cek` or `/analisis` without target content now returns usage instructions;
+  command text is stripped before private-chat analysis. API contract is synchronized.
+- VPS evidence: Caddy now reaches the Telegram Bridge (manual requests return Bridge JSON,
+  not frontend Nginx HTML), consent UI works, Docker can reach Gateway port `18789`, and
+  authenticated `GET /v1/models` returns `200` with `openclaw/fraudguard` available.
+- Current blocker: after Gateway token synchronization Telegram can remain silent. A real
+  `POST /v1/responses`, Bridge `/ready`, Telegram delivery log, and final Core trace are
+  still unverified. README/user guide now document this staged diagnosis and do not treat
+  `/v1/models` success as end-to-end completion.
+- Telegram setup now registers commands for five production skills: `cek`/`analisis`,
+  `bayar`, `intervensi`, `sosial`, and `intelijen`, plus onboarding/privacy commands.
+  Operators can update or inspect the menu through `commands-set` and `commands-info`.
+- Consented analyses now send a skill-aware loading message before invoking OpenClaw and
+  edit that same message into the final response, preventing a silent wait and avoiding
+  a long list of progress messages.
+- Docker test packaging now includes `openclaw-workspace/`; previously the full suite
+  could fail its installer regression because the test image omitted required templates.
+- Added a managed Telegram-to-intervention demo runbook installed under workspace
+  `docs/`, command aliases from the demo script, and a 30-minute in-memory active
+  intervention reference. Browser context cannot inject the trusted intervention field.
+- Telegram payment turns receive a server-generated `evt_<HMAC>` external payment ID;
+  the value is accepted only on the internal Telegram path and prevents duplicate Core
+  payment creation for a retried update.
 
 - **Tanggal:** 2 September 2026
 - **Tahap:** agent conversation/reasoning/orchestration terpisah dari Core; deployment VPS belum dijalankan.

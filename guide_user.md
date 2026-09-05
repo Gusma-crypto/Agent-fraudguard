@@ -132,11 +132,62 @@ dengan TTL dan locking/version check; sticky session saja tidak cukup saat failo
 5. Gunakan `/privacy` untuk melihat batas pemrosesan, `/help` untuk petunjuk, dan
    `/revoke` untuk mencabut persetujuan.
 
+Tombol menu Telegram mengikuti lima skill Agent:
+
+- `/cek` atau `/analisis` — pemeriksaan fraud umum (`fraud-detection`).
+- `/bayar` — keamanan penerima dan rencana pembayaran (`safety-payment`).
+- `/intervensi` — verifikasi konteks tindakan berisiko (`realtime-intervention`).
+- `/sosial` — manipulasi, impersonation, urgency, dan social engineering.
+- `/intelijen` — pencarian nomor, rekening, URL, domain, atau identifier lain.
+
+Alias `/cek_nomor`, `/cek_domain`, dan `/safety` tersedia untuk alur demo. Bila payment
+check menghasilkan intervention ID dari Core, bot mempertahankan ID tersebut sementara
+untuk sesi yang sama. Jalankan `/intervensi <jawaban kontekstual>` setelahnya; command
+ditolak bila belum ada intervention ID aktif.
+
+Tambahkan teks setelah command atau reply pesan target dengan command tersebut. Setelah
+consent valid, bot menampilkan satu pesan loading sesuai skill. Pesan loading itu akan
+diperbarui menjadi hasil akhir sehingga progres terlihat tanpa memenuhi chat dengan
+banyak pesan. Menu mempermudah pemilihan fungsi, tetapi tidak melewati persetujuan.
+
+Operator dapat mengikuti runbook yang terpasang di
+`/root/.openclaw/workspace-fraudguard/docs/demo-telegram-intervention-flow.md`. Semua
+nomor, rekening, pesan, dan transaksi dalam demo harus sintetis atau jelas dimasking.
+
 Di grup, panggil `/cek <pesan>`, reply pesan target dengan `/cek`, gunakan `/analisis`,
 atau mention bot. Percakapan grup biasa, channel post, pesan bot lain, dan pesan tanpa
 trigger diabaikan. Jangan pernah mengirim OTP, PIN, CVV, password, token, atau private
 key. Integrasi WhatsApp belum aktif; desain consent Core dibuat generik agar adapter
 resmi WhatsApp Business dapat ditambahkan kemudian.
+
+Jika hanya mengirim `/cek` tanpa teks dan tanpa me-reply pesan, bot menampilkan cara
+penggunaan dan tidak menjalankan analisis.
+
+### Jika bot tidak membalas
+
+Operator harus memeriksa jalur secara berurutan. Status sehat pada container atau HTTP
+`200` dari `/v1/models` belum berarti analisis model berhasil.
+
+1. Pastikan `telegram_setup info` menunjukkan webhook
+   `https://fraudguard.my.id/telegram/v1/webhook` dan `pending_update_count` tidak terus
+   bertambah.
+2. Pastikan log `bridge` menerima `POST /telegram/v1/webhook`.
+3. Pastikan tes Gateway `/v1/models` dari container Bridge menghasilkan `200`; ini
+   memvalidasi jaringan dan token saja.
+4. Uji `/v1/responses` dengan `openclaw/fraudguard`. Respons `429`, `503`, `overloaded`,
+   atau timeout menunjukkan provider/model belum dapat menyelesaikan analisis.
+5. Pastikan `/ready` Bridge menghasilkan `200`, lalu uji ulang menggunakan pesan sintetis
+   baru agar tidak terkena deduplikasi `update_id`.
+
+CLI OpenClaw menyensor `gateway.auth.token` sebagai `OPENCLAW_REDACTED`; nilai tersebut
+bukan token dan tidak boleh dimasukkan ke `.env`. Setelah token asli disamakan di Gateway
+dan Agent, container `bridge` harus dibuat ulang dengan `--force-recreate`. Jangan
+menampilkan token, `.env`, atau Authorization header ketika meminta bantuan.
+
+Jika bot menampilkan `UNKNOWN/PENDING`, itu adalah perlindungan fail-closed karena hasil
+authoritative belum tersedia. Jika bot sama sekali diam, periksa log Bridge dan
+`last_error_message` webhook untuk membedakan kegagalan OpenClaw dari kegagalan
+pengiriman Telegram.
 
 ## Intelligence multi-entity
 

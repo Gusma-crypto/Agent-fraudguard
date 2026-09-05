@@ -12,12 +12,36 @@ All notable workspace, product, configuration, and documentation changes are rec
 - Added HMAC-pseudonymous channel identifiers and Core consent read/write integration;
   raw Telegram user/chat IDs are not sent to Core.
 - Added a server-side webhook setup CLI and Telegram unit coverage.
+- Added an operator runbook for Gateway token synchronization, staged `/v1/models` and
+  `/v1/responses` verification, Caddy/webhook diagnosis, and silent-bot troubleshooting.
+- Added a Telegram command menu mapped to all five production skills, plus consent,
+  privacy, help, and onboarding commands. Webhook registration installs the menu
+  automatically, with separate commands to update or inspect it.
+- Added a compact skill-aware progress message that is edited in place into the final
+  Core-authoritative result or fail-closed fallback.
+- Included the managed OpenClaw workspace templates in the Docker test stage so installer
+  regressions exercise the complete deployable bundle.
+- Added a managed five-phase Telegram demo runbook covering consent, fraud detection,
+  intelligence, payment safety, intervention reassessment, and audit evidence.
+- Added `/cek_nomor`, `/cek_domain`, and `/safety` aliases plus bounded per-session reuse
+  of Core-authoritative intervention IDs for `/intervensi`.
+- Added a transport-generated HMAC-pseudonymous payment ID so Telegram safety checks are
+  idempotent without asking users to invent an `external_payment_id`.
 
 ### Security — 2026-09-05
 
 - Kept Telegram, OpenClaw, Agent, and Core credentials outside browser configuration.
 - Replaced a secret-shaped OpenClaw token in the Docker example with a placeholder.
 - Documented consent enforcement in the deployable OpenClaw runtime contract.
+
+### Fixed — 2026-09-05
+
+- Empty Telegram `/cek` and `/analisis` commands now return usage guidance instead of
+  being silently ignored.
+- Analysis commands are removed from private-chat input before it reaches OpenClaw.
+- Synchronized the Agent API contract with the Telegram webhook and consent boundary.
+- Clarified that a successful model-list request verifies only Gateway connectivity and
+  authentication; provider execution and Telegram delivery require separate checks.
 
 ### Dedicated OpenClaw runtime workspace - 2026-09-04
 

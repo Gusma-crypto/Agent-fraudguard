@@ -170,9 +170,26 @@ def structured_output(text: str) -> dict[str, Any] | None:
     return None
 
 
-def instructions(skill: str | None, input_type: str | None) -> str:
+def instructions(
+    skill: str | None,
+    input_type: str | None,
+    trusted_intervention_id: str | None = None,
+    trusted_external_payment_id: str | None = None,
+) -> str:
     selected = skill or "automatic skill selection"
     kind = input_type or "MESSAGE"
+    intervention_context = (
+        "\nA prior Core-authoritative workflow supplied intervention_id "
+        f"{trusted_intervention_id}. Use it only for submit_intervention_response."
+        if trusted_intervention_id is not None
+        else ""
+    )
+    payment_context = (
+        "\nThe Telegram transport supplied idempotent external_payment_id "
+        f"{trusted_external_payment_id}. Use it only for safety_payment."
+        if trusted_external_payment_id is not None
+        else ""
+    )
     return f"""You are the only orchestration and skill-selection layer for FraudGuard.
 Use the installed FraudGuard workspace skills and the provided typed function tools.
 For browser requests, prefer provided function tools; do not invoke shell, exec, curl,
@@ -184,7 +201,7 @@ Return exactly one JSON object with these fields when available:
 message, status, selected_skill, trace_id, risk, policy, recommended_action, signals,
 providers, summary, evidence, graph, trace, actions, intervention_id.
 Use null, empty arrays, or empty objects when Core did not return a field.
-Do not wrap the JSON in Markdown."""
+Do not wrap the JSON in Markdown.{intervention_context}{payment_context}"""
 
 
 def normalized_context(context: dict[str, Any]) -> tuple[str | None, str]:
@@ -377,13 +394,35 @@ async def tools(_: BridgeAuth) -> dict[str, Any]:
     }
 
 
-async def run_openclaw(payload: ChatRequest) -> dict[str, Any]:
+async def run_openclaw(
+    payload: ChatRequest,
+    *,
+    accept_trusted_context: bool = False,
+) -> dict[str, Any]:
     session_id = payload.session_id or uuid.uuid4()
     requested_skill, input_type = normalized_context(payload.context)
+    trusted_intervention_id = None
+    trusted_external_payment_id = None
+    if accept_trusted_context:
+        candidate = payload.context.get("trusted_intervention_id")
+        try:
+            trusted_intervention_id = str(uuid.UUID(str(candidate)))
+        except (ValueError, TypeError, AttributeError):
+            pass
+        payment_candidate = payload.context.get("trusted_external_payment_id")
+        if isinstance(payment_candidate, str) and re.fullmatch(
+            r"evt_[0-9a-f]{64}", payment_candidate
+        ):
+            trusted_external_payment_id = payment_candidate
     request_body = {
         "model": f"openclaw/{settings.openclaw_agent_id}",
         "input": payload.message,
-        "instructions": instructions(requested_skill, input_type),
+        "instructions": instructions(
+            requested_skill,
+            input_type,
+            trusted_intervention_id,
+            trusted_external_payment_id,
+        ),
         "user": f"fraudguard-web-{session_id}",
         "stream": False,
         "max_output_tokens": 4096,
@@ -490,7 +529,8 @@ async def telegram_analysis(
 ) -> dict[str, Any]:
     try:
         return await run_openclaw(
-            ChatRequest(session_id=session_id, message=message, context=context)
+            ChatRequest(session_id=session_id, message=message, context=context),
+            accept_trusted_context=True,
         )
     except HTTPException:
         return {

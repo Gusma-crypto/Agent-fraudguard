@@ -339,12 +339,91 @@ container so the bot token stays in its environment:
 docker compose --env-file .env -f Docker/compose.yml up -d --build bridge
 docker compose --env-file .env -f Docker/compose.yml exec bridge python -m fraudguard_agent.telegram_setup set --url https://fraudguard.my.id/telegram/v1/webhook
 docker compose --env-file .env -f Docker/compose.yml exec bridge python -m fraudguard_agent.telegram_setup info
+docker compose --env-file .env -f Docker/compose.yml exec bridge python -m fraudguard_agent.telegram_setup commands-info
 ```
+
+Perintah `set` mendaftarkan webhook sekaligus menu bot. Untuk memperbarui menu tanpa
+mengubah webhook, jalankan:
+
+```bash
+docker compose --env-file .env -f Docker/compose.yml exec bridge \
+  python -m fraudguard_agent.telegram_setup commands-set
+```
+
+Menu memuat `/cek` (`fraud-detection`), `/bayar` (`safety-payment`), `/intervensi`
+(`realtime-intervention`), `/sosial` (`social-engineering`), dan `/intelijen`
+(`intelligence-search`). `/analisis` tetap menjadi alias `/cek`; `/start`, `/consent`,
+`/privacy`, `/revoke`, dan `/help` menangani onboarding dan privasi. Telegram dapat
+menyimpan cache menu beberapa saat; tutup lalu buka kembali chat bot jika tombol menu
+belum langsung berubah.
+
+Alias demo `/cek_nomor`, `/cek_domain`, dan `/safety` tersedia. Ketika hasil Core
+mengandung `intervention_id`, Bridge menyimpannya maksimal 30 menit dalam memory sesi
+Telegram. `/intervensi` hanya memakai ID authoritative tersebut; tanpa ID aktif bot
+meminta payment check lebih dahulu. Runbook lengkap dipasang ke
+`<workspace>/docs/demo-telegram-intervention-flow.md` oleh installer OpenClaw.
+Untuk payment check, Bridge menghasilkan `external_payment_id` pseudonim dan idempotent
+dari update Telegram; pengguna tidak perlu membuat atau mengetik ID teknis tersebut.
+
+Setelah consent valid, bot segera mengirim satu pesan progres sesuai skill, misalnya
+`FraudGuard sedang memeriksa keamanan pembayaran`. Setelah OpenClaw/Core selesai, pesan
+yang sama diedit menjadi hasil akhir. Ini menjaga progres tetap terlihat tanpa membuat
+deretan pesan status. Bila model/dependency gagal, pesan progres diganti dengan fallback
+`UNKNOWN/PENDING`, bukan dibiarkan sebagai hasil palsu.
 
 Keep BotFather privacy mode enabled for groups. Test `/start`, choose **Setuju**, resend
 a synthetic suspicious message, then test `/revoke`. A valid Core result includes a real
 trace ID; if OpenClaw/Core is unavailable the bot returns a conservative review message
 without inventing a risk score.
+
+`/cek` and `/analisis` require content, for example `/cek pesan mencurigakan`, or must be
+sent as a reply to the target message. An empty command returns usage guidance and does
+not call OpenClaw/Core.
+
+### VPS runbook: OpenClaw Gateway dan Telegram
+
+`openclaw config get gateway.auth.token` sengaja mengembalikan
+`OPENCLAW_REDACTED`. Jangan menyalin nilai redacted itu ke `.env`. Token pada Gateway
+dan `OPENCLAW_GATEWAY_TOKEN` di Agent harus identik, tetapi tetap server-side. Setelah
+mengubah `.env`, gunakan `--force-recreate`; `docker compose restart` saja tidak memuat
+ulang environment container.
+
+Verifikasi dilakukan berurutan. Keberhasilan satu tahap tidak membuktikan tahap setelahnya:
+
+1. `GET /v1/models` dengan Bearer token harus menghasilkan HTTP `200`. Ini hanya
+   membuktikan jaringan Bridge → Gateway dan autentikasi.
+2. `POST /v1/responses` dengan model `openclaw/fraudguard` harus menghasilkan HTTP
+   `200`. Ini membuktikan provider/model dapat menjalankan turn.
+3. `GET http://127.0.0.1:3100/ready` harus menghasilkan HTTP `200` dan
+   `orchestrator=openclaw`.
+4. `telegram_setup info` harus menunjukkan URL webhook yang benar, tidak ada pending
+   update yang terus bertambah, dan tidak ada error baru.
+5. Baru setelah itu uji pesan sintetis Telegram dan pastikan respons memiliki trace ID
+   authoritative dari Core.
+
+Tes model dari dalam Bridge tanpa mencetak token:
+
+```bash
+docker compose --env-file .env -f Docker/compose.yml exec bridge \
+  python -c 'import os,httpx; u=os.environ["OPENCLAW_GATEWAY_URL"].rstrip("/")+"/v1/responses"; h={"Authorization":"Bearer "+os.environ["OPENCLAW_GATEWAY_TOKEN"]}; p={"model":"openclaw/fraudguard","input":"Jawab singkat: runtime aktif.","stream":False,"max_output_tokens":128}; r=httpx.post(u,headers=h,json=p,timeout=120); print("STATUS",r.status_code); print(r.text[:2000])'
+```
+
+Jika `/v1/models` sudah `200` tetapi Telegram diam, periksa `/v1/responses`, log Bridge,
+dan status webhook secara bersamaan:
+
+```bash
+docker compose --env-file .env -f Docker/compose.yml logs --tail=200 bridge
+docker compose --env-file .env -f Docker/compose.yml exec bridge \
+  python -m fraudguard_agent.telegram_setup info
+```
+
+`401` pada `/v1/models` berarti token berbeda. Timeout koneksi berarti bind/firewall
+private Gateway belum benar. `429`, `503`, `overloaded`, atau timeout pada
+`/v1/responses` berarti provider/model belum siap meskipun token valid. Respons Telegram
+`UNKNOWN/PENDING` adalah fallback fail-closed; tidak boleh dipresentasikan sebagai hasil
+analisis berhasil. HTTP `405` HTML dari Nginx berarti `/telegram/*` jatuh ke frontend,
+sedangkan HTTP `401` JSON pada POST manual tanpa secret berarti route sudah mencapai
+Bridge dan autentikasi webhook bekerja.
 
 ## Quality
 

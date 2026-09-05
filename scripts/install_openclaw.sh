@@ -94,12 +94,19 @@ skills=(
   social-engineering
 )
 root_files=(AGENTS.md SOUL.md IDENTITY.md TOOLS.md MANIFEST.md USER.md HEARTBEAT.md)
+runtime_docs=(demo-telegram-intervention-flow.md)
 if [[ $with_creator -eq 1 ]]; then
   skills+=(skill-creator)
 fi
 for file in "${root_files[@]}"; do
   [[ -f "${repo_root}/openclaw-workspace/${file}" ]] || {
     echo "Missing runtime source: openclaw-workspace/${file}" >&2
+    exit 1
+  }
+done
+for file in "${runtime_docs[@]}"; do
+  [[ -f "${repo_root}/openclaw-workspace/docs/${file}" ]] || {
+    echo "Missing runtime document: openclaw-workspace/docs/${file}" >&2
     exit 1
   }
 done
@@ -187,6 +194,13 @@ for file in "${root_files[@]}"; do
     "${repo_root}/openclaw-workspace/${file}" \
     "${workspace}/${file}" \
     "${backup_root}/${file}" \
+    600
+done
+for file in "${runtime_docs[@]}"; do
+  install_file \
+    "${repo_root}/openclaw-workspace/docs/${file}" \
+    "${workspace}/docs/${file}" \
+    "${backup_root}/docs/${file}" \
     600
 done
 

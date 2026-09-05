@@ -128,6 +128,7 @@ def test_installer_is_idempotent_and_preserves_conflicts(tmp_path: Path) -> None
     assert (workspace / "skills/realtime-intervention/SKILL.md").is_file()
     assert (workspace / "skills/intelligence-search/SKILL.md").is_file()
     assert (workspace / "skills/social-engineering/SKILL.md").is_file()
+    assert (workspace / "docs/demo-telegram-intervention-flow.md").is_file()
     assert not (workspace / "skills/malicious-url").exists()
     assert not (workspace / "skills/skill-creator").exists()
     bridge = workspace / "tools/fraudguard-agent"

@@ -54,6 +54,24 @@ def test_bridge_instruction_preserves_core_authority() -> None:
     assert "PHONE" in value
 
 
+def test_bridge_instruction_accepts_only_explicit_trusted_intervention() -> None:
+    intervention_id = "00000000-0000-0000-0000-000000000123"
+    value = instructions("realtime-intervention:v1", "MESSAGE", intervention_id)
+    assert intervention_id in value
+    assert "submit_intervention_response" in value
+
+
+def test_bridge_instruction_can_receive_transport_payment_id() -> None:
+    payment_id = "evt_" + "a" * 64
+    value = instructions(
+        "safety-payment:v1",
+        "TRANSACTION",
+        trusted_external_payment_id=payment_id,
+    )
+    assert payment_id in value
+    assert "safety_payment" in value
+
+
 def test_bridge_context_only_accepts_allowlisted_routing_hints() -> None:
     assert normalized_context(
         {"requested_skill": "SAFETY-PAYMENT:V1", "input_type": "transaction"}

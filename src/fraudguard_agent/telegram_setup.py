@@ -10,6 +10,32 @@ import httpx
 
 from .config import Settings, get_settings
 
+TELEGRAM_COMMANDS: tuple[tuple[str, str], ...] = (
+    ("start", "Mulai dan atur persetujuan FraudGuard"),
+    ("cek", "Fraud detection untuk pesan mencurigakan"),
+    ("analisis", "Alias analisis fraud umum"),
+    ("bayar", "Periksa keamanan rencana pembayaran"),
+    ("intervensi", "Verifikasi konteks dan hentikan tindakan berisiko"),
+    ("sosial", "Deteksi manipulasi dan social engineering"),
+    ("intelijen", "Cari intelligence nomor, rekening, URL, atau domain"),
+    ("cek_nomor", "Cari intelligence nomor telepon"),
+    ("cek_domain", "Cari intelligence URL atau domain"),
+    ("safety", "Alias pemeriksaan keamanan pembayaran"),
+    ("consent", "Tampilkan pilihan persetujuan pemrosesan"),
+    ("privacy", "Lihat batas privasi dan pemrosesan data"),
+    ("revoke", "Cabut persetujuan FraudGuard"),
+    ("help", "Lihat panduan penggunaan bot"),
+)
+
+
+def commands_payload() -> dict[str, Any]:
+    return {
+        "commands": [
+            {"command": command, "description": description}
+            for command, description in TELEGRAM_COMMANDS
+        ]
+    }
+
 
 def webhook_payload(settings: Settings, url: str) -> dict[str, Any]:
     parsed = urlparse(url)
@@ -48,6 +74,8 @@ def parser() -> argparse.ArgumentParser:
     set_command.add_argument("--url", required=True)
     commands.add_parser("info", help="Show Telegram webhook status")
     commands.add_parser("delete", help="Remove the registered webhook")
+    commands.add_parser("commands-set", help="Register the FraudGuard command menu")
+    commands.add_parser("commands-info", help="Show the registered command menu")
     return root
 
 
@@ -59,17 +87,28 @@ def main() -> int:
         return 2
     try:
         if args.command == "set":
-            result = telegram_call(
-                settings,
-                "setWebhook",
-                webhook_payload(settings, args.url),
-            )
+            result = {
+                "webhook": telegram_call(
+                    settings,
+                    "setWebhook",
+                    webhook_payload(settings, args.url),
+                ),
+                "commands": telegram_call(
+                    settings,
+                    "setMyCommands",
+                    commands_payload(),
+                ),
+            }
         elif args.command == "delete":
             result = telegram_call(
                 settings,
                 "deleteWebhook",
                 {"drop_pending_updates": False},
             )
+        elif args.command == "commands-set":
+            result = telegram_call(settings, "setMyCommands", commands_payload())
+        elif args.command == "commands-info":
+            result = telegram_call(settings, "getMyCommands", {})
         else:
             result = telegram_call(settings, "getWebhookInfo", {})
     except (RuntimeError, ValueError) as exc:

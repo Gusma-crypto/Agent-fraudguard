@@ -5,7 +5,7 @@ import pytest
 
 from fraudguard_agent.config import Settings
 from fraudguard_agent.telegram import TelegramProcessor, format_result, parse_update
-from fraudguard_agent.telegram_setup import webhook_payload
+from fraudguard_agent.telegram_setup import commands_payload, webhook_payload
 
 
 class FakeCore:
@@ -30,6 +30,7 @@ class FakeTelegramApi:
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
         self.callbacks: list[tuple[str, str]] = []
+        self.edits: list[dict[str, Any]] = []
 
     async def send_message(self, chat_id, text, *, reply_to=None, reply_markup=None):
         self.messages.append(
@@ -40,6 +41,10 @@ class FakeTelegramApi:
                 "reply_markup": reply_markup,
             }
         )
+        return len(self.messages)
+
+    async def edit_message(self, chat_id: int, message_id: int, text: str) -> None:
+        self.edits.append({"chat_id": chat_id, "message_id": message_id, "text": text})
 
     async def answer_callback(self, callback_id: str, text: str) -> None:
         self.callbacks.append((callback_id, text))
@@ -132,8 +137,9 @@ async def test_consented_message_calls_openclaw_once() -> None:
     await processor.handle(message_update("Transfer hadiah ke BCA", update_id=3))
     assert len(calls) == 1
     assert calls[0][2]["channel"] == "telegram"
-    assert "HIGH" in api.messages[0]["text"]
-    assert "TEMPORARY_HOLD" in api.messages[0]["text"]
+    assert "Analisis sedang berlangsung" in api.messages[0]["text"]
+    assert "HIGH" in api.edits[0]["text"]
+    assert "TEMPORARY_HOLD" in api.edits[0]["text"]
 
 
 @pytest.mark.asyncio
@@ -183,9 +189,115 @@ async def test_help_does_not_require_consent_or_run_analysis() -> None:
     assert "Cara memakai FraudGuard" in api.messages[0]["text"]
 
 
+@pytest.mark.asyncio
+async def test_empty_check_command_returns_usage_without_core_analysis() -> None:
+    core = FakeCore("GRANTED")
+    api = FakeTelegramApi()
+
+    async def analyze(*args: Any):
+        raise AssertionError("empty command must not run analysis")
+
+    result = await TelegramProcessor(settings(), core, api, analyze).handle(
+        message_update("/cek", update_id=6, chat_type="supergroup")
+    )
+    assert result["status"] == "input_required"
+    assert "/cek" in api.messages[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_private_check_command_removes_command_from_analysis_input() -> None:
+    core = FakeCore("GRANTED")
+    api = FakeTelegramApi()
+    analyzed: list[str] = []
+
+    async def analyze(text: str, session_id: uuid.UUID, context: dict[str, Any]):
+        analyzed.append(text)
+        return {}
+
+    await TelegramProcessor(settings(), core, api, analyze).handle(
+        message_update("/cek diminta transfer biaya hadiah", update_id=7)
+    )
+    assert analyzed == ["diminta transfer biaya hadiah"]
+
+
+@pytest.mark.asyncio
+async def test_payment_command_routes_to_safety_payment_skill() -> None:
+    core = FakeCore("GRANTED")
+    api = FakeTelegramApi()
+    contexts: list[dict[str, Any]] = []
+
+    async def analyze(text: str, session_id: uuid.UUID, context: dict[str, Any]):
+        contexts.append(context)
+        return {}
+
+    await TelegramProcessor(settings(), core, api, analyze).handle(
+        message_update("/bayar transfer Rp500 ribu ke penerima baru", update_id=8)
+    )
+    assert contexts[0]["requested_skill"] == "safety-payment:v1"
+    assert contexts[0]["input_type"] == "TRANSACTION"
+    assert contexts[0]["trusted_external_payment_id"].startswith("evt_")
+    assert "keamanan pembayaran" in api.messages[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_intervention_requires_core_intervention_id() -> None:
+    core = FakeCore("GRANTED")
+    api = FakeTelegramApi()
+
+    async def analyze(*args: Any):
+        raise AssertionError("intervention without a Core ID must not run")
+
+    result = await TelegramProcessor(settings(), core, api, analyze).handle(
+        message_update("/intervensi tidak, ya, ya", update_id=9)
+    )
+    assert result["status"] == "intervention_required"
+    assert "intervention ID aktif" in api.messages[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_intervention_reuses_prior_core_intervention_id() -> None:
+    core = FakeCore("GRANTED")
+    api = FakeTelegramApi()
+    contexts: list[dict[str, Any]] = []
+    intervention_id = "00000000-0000-0000-0000-000000000123"
+
+    async def analyze(text: str, session_id: uuid.UUID, context: dict[str, Any]):
+        contexts.append(context)
+        if context["requested_skill"] == "safety-payment:v1":
+            return {"intervention_id": intervention_id}
+        return {}
+
+    processor = TelegramProcessor(settings(), core, api, analyze)
+    await processor.handle(message_update("/safety Rp500 ribu ke BCA", update_id=10))
+    await processor.handle(message_update("/intervensi tidak, ya, ya", update_id=11))
+    assert contexts[1]["requested_skill"] == "realtime-intervention:v1"
+    assert contexts[1]["trusted_intervention_id"] == intervention_id
+
+
 def test_webhook_payload_is_https_and_limits_update_types() -> None:
     payload = webhook_payload(settings(), "https://fraudguard.my.id/telegram/v1/webhook")
     assert payload["allowed_updates"] == ["message", "callback_query"]
     assert payload["secret_token"] == "w" * 32
     with pytest.raises(ValueError, match="HTTPS"):
         webhook_payload(settings(), "http://localhost/telegram/v1/webhook")
+
+
+def test_command_menu_contains_only_supported_commands() -> None:
+    payload = commands_payload()
+    assert [item["command"] for item in payload["commands"]] == [
+        "start",
+        "cek",
+        "analisis",
+        "bayar",
+        "intervensi",
+        "sosial",
+        "intelijen",
+        "cek_nomor",
+        "cek_domain",
+        "safety",
+        "consent",
+        "privacy",
+        "revoke",
+        "help",
+    ]
+    assert all(item["description"] for item in payload["commands"])

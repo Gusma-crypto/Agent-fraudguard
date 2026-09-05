@@ -18,6 +18,33 @@ from .core_client import CoreClient, CoreError
 
 Analyze = Callable[[str, uuid.UUID, dict[str, Any]], Awaitable[dict[str, Any]]]
 
+SKILL_COMMANDS = {
+    "/cek": "fraud-detection:v1",
+    "/analisis": "fraud-detection:v1",
+    "/bayar": "safety-payment:v1",
+    "/intervensi": "realtime-intervention:v1",
+    "/sosial": "social-engineering:v1",
+    "/intelijen": "intelligence-search:v1",
+    "/cek_nomor": "intelligence-search:v1",
+    "/cek_domain": "intelligence-search:v1",
+    "/safety": "safety-payment:v1",
+}
+
+COMMAND_INPUT_TYPES = {
+    "/bayar": "TRANSACTION",
+    "/safety": "TRANSACTION",
+    "/cek_nomor": "PHONE",
+    "/cek_domain": "DOMAIN",
+}
+
+SKILL_PROGRESS_LABELS = {
+    "fraud-detection:v1": "memeriksa indikasi fraud",
+    "safety-payment:v1": "memeriksa keamanan pembayaran",
+    "realtime-intervention:v1": "menilai kebutuhan intervensi",
+    "social-engineering:v1": "memeriksa pola manipulasi",
+    "intelligence-search:v1": "mencari dan memverifikasi intelligence",
+}
+
 
 class TelegramError(RuntimeError):
     pass
@@ -31,7 +58,9 @@ class TelegramApi(Protocol):
         *,
         reply_to: int | None = None,
         reply_markup: dict[str, Any] | None = None,
-    ) -> None: ...
+    ) -> int | None: ...
+
+    async def edit_message(self, chat_id: int, message_id: int, text: str) -> None: ...
 
     async def answer_callback(self, callback_id: str, text: str) -> None: ...
 
@@ -47,7 +76,7 @@ class HttpTelegramApi:
     async def close(self) -> None:
         await self.client.aclose()
 
-    async def _call(self, method: str, payload: dict[str, Any]) -> None:
+    async def _call(self, method: str, payload: dict[str, Any]) -> Any:
         try:
             response = await self.client.post(f"/{method}", json=payload)
             body = response.json()
@@ -55,6 +84,7 @@ class HttpTelegramApi:
             raise TelegramError("Telegram Bot API tidak dapat dihubungi") from exc
         if response.is_error or not isinstance(body, dict) or body.get("ok") is not True:
             raise TelegramError("Telegram Bot API menolak respons bot")
+        return body.get("result")
 
     async def send_message(
         self,
@@ -63,7 +93,7 @@ class HttpTelegramApi:
         *,
         reply_to: int | None = None,
         reply_markup: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> int | None:
         payload: dict[str, Any] = {
             "chat_id": chat_id,
             "text": text[:4096],
@@ -74,7 +104,24 @@ class HttpTelegramApi:
             payload["reply_parameters"] = {"message_id": reply_to}
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
-        await self._call("sendMessage", payload)
+        result = await self._call("sendMessage", payload)
+        if isinstance(result, dict):
+            message_id = result.get("message_id")
+            if isinstance(message_id, int) and not isinstance(message_id, bool):
+                return message_id
+        return None
+
+    async def edit_message(self, chat_id: int, message_id: int, text: str) -> None:
+        await self._call(
+            "editMessageText",
+            {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "text": text[:4096],
+                "parse_mode": "HTML",
+                "link_preview_options": {"is_disabled": True},
+            },
+        )
 
     async def answer_callback(self, callback_id: str, text: str) -> None:
         await self._call(
@@ -209,6 +256,9 @@ def format_result(result: dict[str, Any]) -> str:
     trace_id = result.get("trace_id")
     if trace_id:
         parts.extend(["", f"<code>Trace: {html.escape(str(trace_id))}</code>"])
+    intervention_id = result.get("intervention_id")
+    if intervention_id:
+        parts.append(f"<code>Intervention: {html.escape(str(intervention_id))}</code>")
     return "\n".join(parts)[:4000]
 
 
@@ -227,6 +277,7 @@ class TelegramProcessor:
         self.windows: dict[str, deque[float]] = defaultdict(deque)
         self.completed: dict[int, float] = {}
         self.pending_delivery: dict[int, tuple[int, str, int | None]] = {}
+        self.active_interventions: dict[uuid.UUID, tuple[str, float]] = {}
 
     def _digest(self, purpose: str, value: object, prefix: str) -> str:
         key = self.settings.telegram_subject_hmac_key.get_secret_value().encode()
@@ -255,25 +306,38 @@ class TelegramProcessor:
 
     def _triggered_text(self, message: InboundMessage) -> str | None:
         text = message.text.strip()
+        command = text.lower().split(maxsplit=1)[0].split("@", 1)[0]
+        analysis_command = command in SKILL_COMMANDS
         if message.chat_type == "PRIVATE":
+            if analysis_command:
+                if message.reply_text:
+                    return message.reply_text.strip() or None
+                parts = text.split(maxsplit=1)
+                return parts[1].strip() if len(parts) == 2 else None
             return text
         if message.chat_type not in {"GROUP", "SUPERGROUP"}:
             return None
         username = self.settings.telegram_bot_username.lstrip("@").lower()
         lowered = text.lower()
-        command = lowered.startswith(("/cek", "/analisis"))
         mentioned = bool(username) and f"@{username}" in lowered
-        if not command and not mentioned and not message.reply_from_bot:
+        if not analysis_command and not mentioned and not message.reply_from_bot:
             return None
-        if command and message.reply_text:
+        if analysis_command and message.reply_text:
             return message.reply_text.strip()
-        for prefix in ("/cek", "/analisis"):
-            if lowered.startswith(prefix):
-                text = text[len(prefix) :].lstrip()
-                break
+        if analysis_command:
+            parts = text.split(maxsplit=1)
+            text = parts[1] if len(parts) == 2 else ""
         if username:
             text = re.sub(rf"@{re.escape(username)}\b", "", text, flags=re.IGNORECASE)
         return text.strip() or None
+
+    def _requested_skill(self, message: InboundMessage) -> str:
+        command = message.text.strip().lower().split(maxsplit=1)[0].split("@", 1)[0]
+        return SKILL_COMMANDS.get(command, "fraud-detection:v1")
+
+    def _input_type(self, message: InboundMessage) -> str:
+        command = message.text.strip().lower().split(maxsplit=1)[0].split("@", 1)[0]
+        return COMMAND_INPUT_TYPES.get(command, "MESSAGE")
 
     async def _consent_status(self, subject_ref: str) -> str:
         result = await self.core.get_channel_consent("TELEGRAM", subject_ref)
@@ -362,10 +426,21 @@ class TelegramProcessor:
 
         if event.from_bot:
             return {"status": "ignored"}
+        command = event.text.strip().lower().split(maxsplit=1)[0].split("@", 1)[0]
         text = self._triggered_text(event)
         if text is None:
+            if command in SKILL_COMMANDS:
+                await self.api.send_message(
+                    event.chat_id,
+                    (
+                        f"Kirim <code>{html.escape(command)} &lt;pesan/konteks&gt;</code> "
+                        f"atau reply pesan target dengan <code>{html.escape(command)}</code>."
+                    ),
+                    reply_to=event.message_id,
+                )
+                self.completed[event.update_id] = now + 3600
+                return {"status": "input_required"}
             return {"status": "ignored"}
-        command = event.text.strip().lower().split(maxsplit=1)[0].split("@", 1)[0]
         if command == "/privacy":
             await self.api.send_message(
                 event.chat_id,
@@ -383,7 +458,8 @@ class TelegramProcessor:
                     "Private chat: kirim atau teruskan pesan mencurigakan.\n"
                     "Grup: gunakan <code>/cek pesan</code>, balas pesan dengan "
                     "<code>/cek</code>, atau mention bot.\n"
-                    "Perintah: /consent, /privacy, dan /revoke.\n\n"
+                    "Skill: /cek, /bayar, /intervensi, /sosial, dan /intelijen.\n"
+                    "Privasi: /consent, /privacy, dan /revoke.\n\n"
                     "Jangan kirim OTP, PIN, CVV, password, atau private key."
                 ),
                 reply_to=event.message_id,
@@ -430,23 +506,75 @@ class TelegramProcessor:
                 await self._prompt(event.chat_id, event.message_id)
                 self.completed[event.update_id] = now + 3600
                 return {"status": "consent_required"}
+            requested_skill = self._requested_skill(event)
+            session_id = self._session(subject_ref, event.chat_id)
+            self.active_interventions = {
+                key: value for key, value in self.active_interventions.items() if value[1] > now
+            }
+            active_intervention = self.active_interventions.get(session_id)
+            if requested_skill == "realtime-intervention:v1" and active_intervention is None:
+                await self.api.send_message(
+                    event.chat_id,
+                    (
+                        "Belum ada intervention ID aktif dari FraudGuard Core. Jalankan "
+                        "<code>/bayar &lt;jumlah, penerima, konteks&gt;</code> lebih dahulu, "
+                        "lalu lanjutkan <code>/intervensi &lt;jawaban&gt;</code>."
+                    ),
+                    reply_to=event.message_id,
+                )
+                self.completed[event.update_id] = now + 3600
+                return {"status": "intervention_required"}
+            progress_message_id = await self.api.send_message(
+                event.chat_id,
+                (
+                    "⏳ <b>Analisis sedang berlangsung</b>\n\n"
+                    f"FraudGuard sedang {SKILL_PROGRESS_LABELS[requested_skill]}. "
+                    "Mohon tunggu, hasil akan tampil di pesan ini."
+                ),
+                reply_to=event.message_id,
+            )
             result = await self.analyze(
                 text,
-                self._session(subject_ref, event.chat_id),
+                session_id,
                 {
-                    "requested_skill": "fraud-detection:v1",
-                    "input_type": "MESSAGE",
+                    "requested_skill": requested_skill,
+                    "input_type": self._input_type(event),
                     "channel": "telegram",
                     "consent_policy_version": self.settings.telegram_consent_policy_version,
+                    "trusted_intervention_id": (
+                        active_intervention[0] if active_intervention is not None else None
+                    ),
+                    "trusted_external_payment_id": (
+                        self._event(event.update_id)
+                        if requested_skill == "safety-payment:v1"
+                        else None
+                    ),
                 },
             )
+            intervention_id = result.get("intervention_id")
+            try:
+                normalized_intervention_id = str(uuid.UUID(str(intervention_id)))
+            except (ValueError, TypeError, AttributeError):
+                normalized_intervention_id = None
+            if normalized_intervention_id is not None:
+                self.active_interventions[session_id] = (
+                    normalized_intervention_id,
+                    now + 1800,
+                )
             response_text = format_result(result)
             self.pending_delivery[event.update_id] = (
                 event.chat_id,
                 response_text,
                 event.message_id,
             )
-            await self.api.send_message(event.chat_id, response_text, reply_to=event.message_id)
+            if progress_message_id is not None:
+                await self.api.edit_message(event.chat_id, progress_message_id, response_text)
+            else:
+                await self.api.send_message(
+                    event.chat_id,
+                    response_text,
+                    reply_to=event.message_id,
+                )
             self.pending_delivery.pop(event.update_id, None)
         self.completed[event.update_id] = now + 3600
         return {"status": "processed"}

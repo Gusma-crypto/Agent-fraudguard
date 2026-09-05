@@ -21,5 +21,6 @@ USER root
 COPY tests ./tests
 COPY scripts ./scripts
 COPY skills ./skills
+COPY openclaw-workspace ./openclaw-workspace
 RUN pip install --no-cache-dir '.[dev]'
 CMD ["pytest", "-q"]
