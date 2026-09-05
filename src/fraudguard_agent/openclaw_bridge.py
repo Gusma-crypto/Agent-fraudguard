@@ -42,11 +42,11 @@ ALLOWED_INPUT_TYPES = {
     "URL",
 }
 SKILL_TOOLS = {
-    "fraud-detection:v1": ("fraud_analyze", "intelligence_lookup"),
+    "fraud-detection:v1": ("intelligence_lookup",),
     "intelligence-search:v1": ("intelligence_lookup",),
     "realtime-intervention:v1": ("submit_intervention_response",),
     "safety-payment:v1": ("safety_payment",),
-    "social-engineering:v1": ("fraud_analyze", "intelligence_lookup"),
+    "social-engineering:v1": ("intelligence_lookup",),
 }
 DEFAULT_TOOLS = (
     "fraud_analyze",
@@ -195,6 +195,7 @@ Use the installed FraudGuard workspace skills and the provided typed function to
 For browser requests, prefer provided function tools; do not invoke shell, exec, curl,
 or generic HTTP.
 Requested skill: {selected}. Input type: {kind}.
+When a specific skill is requested, call one of the provided tools before answering.
 FraudGuard Core is the sole authority for evidence, risk, policy, and decisions.
 Never invent provider results, evidence, scores, policy, incidents, or trace IDs.
 Return exactly one JSON object with these fields when available:
@@ -226,6 +227,33 @@ def client_tools(selected_skill: str | None) -> list[dict[str, Any]]:
         }
         for name in names
     ]
+
+
+def initial_tool_choice(selected_skill: str | None) -> str:
+    return "required" if selected_skill in ALLOWED_SKILLS else "auto"
+
+
+def enforce_skill_arguments(
+    name: str,
+    arguments: dict[str, Any],
+    selected_skill: str | None,
+    original_message: str,
+) -> dict[str, Any]:
+    """Apply trusted transport semantics without accepting model-made authority."""
+
+    normalized = dict(arguments)
+    if name == "intelligence_lookup" and selected_skill in {
+        "fraud-detection:v1",
+        "intelligence-search:v1",
+        "social-engineering:v1",
+    }:
+        # The model chooses the tool, but it must not replace the user's target
+        # or inject synthetic facts into the authoritative Core request.
+        normalized = {
+            "deep_search": True,
+            "input": {"text": original_message},
+        }
+    return normalized
 
 
 def function_calls(body: dict[str, Any]) -> list[dict[str, Any]]:
@@ -428,7 +456,7 @@ async def run_openclaw(
         "max_output_tokens": 4096,
         "metadata": {"source": "fraudguard-web", "requested_skill": requested_skill or "auto"},
         "tools": client_tools(requested_skill),
-        "tool_choice": "auto",
+        "tool_choice": initial_tool_choice(requested_skill),
     }
     body: dict[str, Any] = {}
     tool_results: list[dict[str, Any]] = []
@@ -463,6 +491,9 @@ async def run_openclaw(
                     raise ValueError("tool arguments must be an object")
                 if name not in permitted:
                     raise ValueError(f"Tool is not allowed for this skill: {name}")
+                arguments = enforce_skill_arguments(
+                    name, arguments, requested_skill, payload.message
+                )
                 cache_key = json.dumps([name, arguments], sort_keys=True, separators=(",", ":"))
                 result = call_cache.get(cache_key)
                 if result is None:
@@ -489,6 +520,7 @@ async def run_openclaw(
             **request_body,
             "input": outputs,
             "previous_response_id": response_id,
+            "tool_choice": "auto",
         }
     else:
         raise HTTPException(

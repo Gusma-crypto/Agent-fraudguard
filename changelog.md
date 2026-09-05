@@ -27,6 +27,8 @@ All notable workspace, product, configuration, and documentation changes are rec
   of Core-authoritative intervention IDs for `/intervensi`.
 - Added a transport-generated HMAC-pseudonymous payment ID so Telegram safety checks are
   idempotent without asking users to invent an `external_payment_id`.
+- Added a periodically refreshed native Telegram typing indicator during OpenClaw/Core
+  processing; it is cancelled deterministically when analysis ends.
 
 ### Security — 2026-09-05
 
@@ -42,6 +44,12 @@ All notable workspace, product, configuration, and documentation changes are rec
 - Synchronized the Agent API contract with the Telegram webhook and consent boundary.
 - Clarified that a successful model-list request verifies only Gateway connectivity and
   authentication; provider execution and Telegram delivery require separate checks.
+- Explicit fraud, social-engineering, and intelligence commands now require a typed Core
+  intelligence call, preserve the original Telegram message, and force deep search instead
+  of allowing OpenClaw to return an unsupported narrative.
+- Telegram results now use Indonesian risk, policy, signal, recommendation, and dependency
+  failure wording. Shortened URLs explicitly distinguish an unverified destination from a
+  provider-observed failed HTTP response.
 
 ### Dedicated OpenClaw runtime workspace - 2026-09-04
 

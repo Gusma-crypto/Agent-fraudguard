@@ -2,7 +2,9 @@ from fraudguard_agent.openclaw_bridge import (
     ALLOWED_SKILLS,
     SKILL_TOOLS,
     authoritative_response,
+    enforce_skill_arguments,
     extract_output_text,
+    initial_tool_choice,
     instructions,
     normalized_context,
     structured_output,
@@ -17,14 +19,23 @@ def test_runtime_exposes_five_non_overlapping_skills() -> None:
         "social-engineering:v1",
         "intelligence-search:v1",
     }
-    assert SKILL_TOOLS["fraud-detection:v1"] == (
-        "fraud_analyze",
+    assert SKILL_TOOLS["fraud-detection:v1"] == ("intelligence_lookup",)
+    assert SKILL_TOOLS["social-engineering:v1"] == ("intelligence_lookup",)
+    assert initial_tool_choice("intelligence-search:v1") == "required"
+    assert initial_tool_choice(None) == "auto"
+
+
+def test_explicit_intelligence_skill_keeps_original_message_and_enables_search() -> None:
+    result = enforce_skill_arguments(
         "intelligence_lookup",
+        {"query": "bit.ly/example", "deep_search": False},
+        "fraud-detection:v1",
+        "Pesan bansos dengan https://bit.ly/example",
     )
-    assert SKILL_TOOLS["social-engineering:v1"] == (
-        "fraud_analyze",
-        "intelligence_lookup",
-    )
+
+    assert result["deep_search"] is True
+    assert result["input"]["text"] == "Pesan bansos dengan https://bit.ly/example"
+    assert "query" not in result
 
 
 def test_extract_openresponses_output_text() -> None:

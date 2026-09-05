@@ -148,7 +148,9 @@ ditolak bila belum ada intervention ID aktif.
 Tambahkan teks setelah command atau reply pesan target dengan command tersebut. Setelah
 consent valid, bot menampilkan satu pesan loading sesuai skill. Pesan loading itu akan
 diperbarui menjadi hasil akhir sehingga progres terlihat tanpa memenuhi chat dengan
-banyak pesan. Menu mempermudah pemilihan fungsi, tetapi tidak melewati persetujuan.
+banyak pesan. Selama pemrosesan, Telegram juga menampilkan indikator mengetik berupa
+titik-titik di bagian atas chat. Indikator berhenti otomatis saat hasil tersedia. Menu
+mempermudah pemilihan fungsi, tetapi tidak melewati persetujuan.
 
 Operator dapat mengikuti runbook yang terpasang di
 `/root/.openclaw/workspace-fraudguard/docs/demo-telegram-intervention-flow.md`. Semua
@@ -162,6 +164,14 @@ resmi WhatsApp Business dapat ditambahkan kemudian.
 
 Jika hanya mengirim `/cek` tanpa teks dan tanpa me-reply pesan, bot menampilkan cara
 penggunaan dan tidak menjalankan analisis.
+
+Untuk pesan bansos, hadiah, pembayaran, atau link pendek, baca hasil dengan urutan:
+risk, keputusan, red flags, status tautan, lalu rekomendasi. Frasa **tujuan akhir belum
+berhasil diverifikasi** berarti sumber intelligence belum memastikan tujuan shortlink;
+itu bukan bukti bahwa link aman atau mati. Frasa **provider terakhir mencatat respons
+gagal** hanya muncul ketika Core memiliki observation status HTTP gagal. Jangan membuka
+shortlink atau memberikan OTP sambil statusnya belum jelas; cari kanal resmi secara
+mandiri, bukan dari link atau nomor pada pesan.
 
 ### Jika bot tidak membalas
 

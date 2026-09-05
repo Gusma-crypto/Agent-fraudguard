@@ -42,6 +42,18 @@ Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah
 - Telegram payment turns receive a server-generated `evt_<HMAC>` external payment ID;
   the value is accepted only on the internal Telegram path and prevents duplicate Core
   payment creation for a retried update.
+- Telegram now sends an immediate `typing` chat action and refreshes it every four seconds
+  while OpenClaw/Core runs. The task is cancelled on every analysis exit path and does not
+  represent backend progress state.
+- Correctness fix: explicit fraud/social/intelligence skills expose only
+  `intelligence_lookup`, require at least one tool call, force `deep_search=true`, and attach
+  the original message as the ingestion envelope. This prevents an OpenClaw-only answer
+  from being shown as a Core verdict.
+- Presentation fix: final Telegram output is Indonesian and human-readable while retaining
+  Core codes in parentheses. A shortlink is explained as hiding its final destination;
+  “provider mencatat respons gagal” is shown only when provider evidence contains
+  `URL_UNREACHABLE`.
+- Validation: complete Agent suite passed (61 tests) and Ruff passed in the Docker test image.
 
 - **Tanggal:** 2 September 2026
 - **Tahap:** agent conversation/reasoning/orchestration terpisah dari Core; deployment VPS belum dijalankan.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import html
@@ -8,6 +9,7 @@ import time
 import uuid
 from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -45,6 +47,49 @@ SKILL_PROGRESS_LABELS = {
     "intelligence-search:v1": "mencari dan memverifikasi intelligence",
 }
 
+RISK_LABELS = {
+    "LOW": "Rendah",
+    "MEDIUM": "Sedang",
+    "HIGH": "Tinggi",
+    "CRITICAL": "Kritis",
+    "UNKNOWN": "Belum dapat ditentukan",
+}
+
+DECISION_LABELS = {
+    "ALLOW": "Tidak ada pembatasan dari policy",
+    "REVIEW": "Perlu ditinjau",
+    "STEP_UP_VERIFY": "Perlu verifikasi tambahan",
+    "TEMPORARY_HOLD": "Jeda sementara",
+    "PENDING": "Belum ada keputusan final",
+}
+
+ACTION_MESSAGES = {
+    "ALLOW": "Tidak ada pemblokiran otomatis. Tetap periksa melalui kanal resmi sebelum bertindak.",
+    "PROCEED_WITH_CAUTION": "Lanjutkan hanya setelah melakukan pemeriksaan biasa.",
+    "REVIEW_REQUIRED": "Tunda tindakan dan periksa kembali melalui kanal resmi.",
+    "VERIFY_OFFICIAL_CHANNEL": (
+        "Verifikasi melalui kanal resmi yang Anda cari sendiri sebelum melanjutkan."
+    ),
+    "DO_NOT_PROCEED": "Jangan lanjutkan transaksi sampai risikonya terverifikasi.",
+}
+
+SIGNAL_LABELS = {
+    "IMPERSONATION": "Mengaku sebagai pihak atau merek tertentu",
+    "PRIZE_SCAM": "Iming-iming hadiah",
+    "PAYMENT_REQUEST": "Meminta pembayaran atau transfer",
+    "URGENCY": "Mendesak agar segera bertindak",
+    "CREDENTIAL_REQUEST": "Meminta informasi rahasia",
+    "OTP_REQUEST": "Meminta kode OTP",
+    "NEW_RECIPIENT": "Penerima pembayaran baru",
+    "THIRD_PARTY_INSTRUCTION": "Instruksi pembayaran dari pihak lain",
+    "GOVERNMENT_AID_LURE": "Iming-iming bantuan sosial atau program pemerintah",
+    "URL_SHORTENER": "Tautan pendek menyembunyikan alamat tujuan",
+    "OFF_PLATFORM_REDIRECT": "Diarahkan ke Telegram/WhatsApp di luar kanal resmi",
+    "LINK_CLICK_INSTRUCTION": "Diminta membuka atau mendaftar melalui tautan",
+    "SUSPICIOUS_URL": "Tautan mendapat indikator mencurigakan",
+    "URL_UNREACHABLE": "Provider terakhir mencatat tautan tidak dapat diakses",
+}
+
 
 class TelegramError(RuntimeError):
     pass
@@ -61,6 +106,8 @@ class TelegramApi(Protocol):
     ) -> int | None: ...
 
     async def edit_message(self, chat_id: int, message_id: int, text: str) -> None: ...
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> None: ...
 
     async def answer_callback(self, callback_id: str, text: str) -> None: ...
 
@@ -122,6 +169,9 @@ class HttpTelegramApi:
                 "link_preview_options": {"is_disabled": True},
             },
         )
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
+        await self._call("sendChatAction", {"chat_id": chat_id, "action": action})
 
     async def answer_callback(self, callback_id: str, text: str) -> None:
         await self._call(
@@ -232,8 +282,23 @@ def format_result(result: dict[str, Any]) -> str:
     score = risk.get("score", result.get("score"))
     level = str(risk.get("level") or result.get("severity") or "UNKNOWN").upper()
     decision = str(policy.get("decision") or result.get("decision") or "PENDING").upper()
+    result_status = str(result.get("status") or "").lower()
+    trace_id = result.get("trace_id")
+    if result_status in {"failed", "error"} or (
+        trace_id is None and level == "UNKNOWN" and decision == "PENDING"
+    ):
+        return (
+            "🛡️ <b>Pemeriksaan belum berhasil</b>\n\n"
+            "Saya belum memperoleh hasil yang dapat dipercaya dari FraudGuard Core. "
+            "Ini <b>bukan</b> berarti target tersebut aman atau berbahaya.\n\n"
+            "Silakan coba kembali sebentar lagi. Sambil menunggu, jangan kirim uang atau "
+            "informasi rahasia dan lakukan verifikasi melalui kanal resmi yang Anda cari sendiri."
+        )
     action = result.get("recommended_action")
-    recommendation = action.get("message") if isinstance(action, dict) else None
+    action_code = str(action.get("code") or "") if isinstance(action, dict) else ""
+    recommendation = ACTION_MESSAGES.get(action_code)
+    if recommendation is None and isinstance(action, dict):
+        recommendation = action.get("message")
     if not isinstance(recommendation, str):
         recommendation = "Jeda tindakan dan verifikasi melalui kanal resmi yang Anda cari sendiri."
     signals = result.get("signals")
@@ -242,18 +307,56 @@ def format_result(result: dict[str, Any]) -> str:
         for item in signals[:6]:
             code = item.get("code") if isinstance(item, dict) else item
             if code:
-                signal_lines.append(f"• {html.escape(str(code))}")
-    score_text = "tidak tersedia" if score is None else f"{html.escape(str(score))}/100"
+                raw_code = str(code).upper()
+                label = SIGNAL_LABELS.get(raw_code, raw_code.replace("_", " ").title())
+                signal_lines.append(f"• {html.escape(label)}")
+    risk_label = RISK_LABELS.get(level, level.replace("_", " ").title())
+    risk_text = (
+        f"{risk_label} ({level})"
+        if score is None
+        else f"{risk_label} ({level}) — {html.escape(str(score))}/100"
+    )
+    decision_label = DECISION_LABELS.get(decision, decision.replace("_", " ").title())
     parts = [
-        "🛡️ <b>FraudGuard Analysis</b>",
+        "🛡️ <b>Hasil pemeriksaan FraudGuard</b>",
         "",
-        f"<b>Risiko:</b> {html.escape(level)} ({score_text})",
-        f"<b>Keputusan:</b> {html.escape(decision)}",
+        f"<b>Tingkat risiko:</b> {html.escape(risk_text)}",
+        f"<b>Keputusan:</b> {html.escape(decision_label)} "
+        f"(<code>{html.escape(decision)}</code>)",
     ]
     if signal_lines:
         parts.extend(["", "<b>Red flags:</b>", *signal_lines])
+    raw_signal_codes = {
+        str(item.get("code") if isinstance(item, dict) else item).upper()
+        for item in signals
+    } if isinstance(signals, list) else set()
+    if "URL_UNREACHABLE" in raw_signal_codes:
+        parts.extend(
+            [
+                "",
+                "<b>Status tautan:</b> Provider terakhir mencatat respons gagal. "
+                "Status ini bukan bukti tunggal penipuan dan dapat berubah.",
+            ]
+        )
+    elif "URL_SHORTENER" in raw_signal_codes:
+        parts.extend(
+            [
+                "",
+                "<b>Status tautan:</b> Shortlink menyembunyikan alamat tujuan. "
+                "Tujuan akhir dan status aksesnya belum dapat dipastikan dari shortlink ini.",
+            ]
+        )
     parts.extend(["", "<b>Rekomendasi:</b>", html.escape(recommendation)])
-    trace_id = result.get("trace_id")
+    summary = result.get("summary")
+    if isinstance(summary, dict):
+        evidence_found = summary.get("evidence_found")
+        sources_successful = summary.get("sources_successful")
+        if evidence_found is not None or sources_successful is not None:
+            parts.extend(["", "<b>Ringkasan intelligence:</b>"])
+            if evidence_found is not None:
+                parts.append(f"• Bukti ditemukan: {html.escape(str(evidence_found))}")
+            if sources_successful is not None:
+                parts.append(f"• Sumber berhasil: {html.escape(str(sources_successful))}")
     if trace_id:
         parts.extend(["", f"<code>Trace: {html.escape(str(trace_id))}</code>"])
     intervention_id = result.get("intervention_id")
@@ -382,6 +485,14 @@ class TelegramProcessor:
                 "chat_type": chat_type,
             }
         )
+
+    async def _keep_typing(self, chat_id: int) -> None:
+        while True:
+            await asyncio.sleep(4)
+            try:
+                await self.api.send_chat_action(chat_id)
+            except TelegramError:
+                return
 
     async def handle(self, payload: dict[str, Any]) -> dict[str, str]:
         event = parse_update(payload)
@@ -533,24 +644,37 @@ class TelegramProcessor:
                 ),
                 reply_to=event.message_id,
             )
-            result = await self.analyze(
-                text,
-                session_id,
-                {
-                    "requested_skill": requested_skill,
-                    "input_type": self._input_type(event),
-                    "channel": "telegram",
-                    "consent_policy_version": self.settings.telegram_consent_policy_version,
-                    "trusted_intervention_id": (
-                        active_intervention[0] if active_intervention is not None else None
-                    ),
-                    "trusted_external_payment_id": (
-                        self._event(event.update_id)
-                        if requested_skill == "safety-payment:v1"
-                        else None
-                    ),
-                },
-            )
+            typing_task: asyncio.Task[None] | None = None
+            try:
+                await self.api.send_chat_action(event.chat_id)
+            except TelegramError:
+                pass
+            else:
+                typing_task = asyncio.create_task(self._keep_typing(event.chat_id))
+            try:
+                result = await self.analyze(
+                    text,
+                    session_id,
+                    {
+                        "requested_skill": requested_skill,
+                        "input_type": self._input_type(event),
+                        "channel": "telegram",
+                        "consent_policy_version": self.settings.telegram_consent_policy_version,
+                        "trusted_intervention_id": (
+                            active_intervention[0] if active_intervention is not None else None
+                        ),
+                        "trusted_external_payment_id": (
+                            self._event(event.update_id)
+                            if requested_skill == "safety-payment:v1"
+                            else None
+                        ),
+                    },
+                )
+            finally:
+                if typing_task is not None:
+                    typing_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await typing_task
             intervention_id = result.get("intervention_id")
             try:
                 normalized_intervention_id = str(uuid.UUID(str(intervention_id)))

@@ -31,6 +31,7 @@ class FakeTelegramApi:
         self.messages: list[dict[str, Any]] = []
         self.callbacks: list[tuple[str, str]] = []
         self.edits: list[dict[str, Any]] = []
+        self.chat_actions: list[tuple[int, str]] = []
 
     async def send_message(self, chat_id, text, *, reply_to=None, reply_markup=None):
         self.messages.append(
@@ -45,6 +46,9 @@ class FakeTelegramApi:
 
     async def edit_message(self, chat_id: int, message_id: int, text: str) -> None:
         self.edits.append({"chat_id": chat_id, "message_id": message_id, "text": text})
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
+        self.chat_actions.append((chat_id, action))
 
     async def answer_callback(self, callback_id: str, text: str) -> None:
         self.callbacks.append((callback_id, text))
@@ -138,6 +142,7 @@ async def test_consented_message_calls_openclaw_once() -> None:
     assert len(calls) == 1
     assert calls[0][2]["channel"] == "telegram"
     assert "Analisis sedang berlangsung" in api.messages[0]["text"]
+    assert api.chat_actions == [(123456789, "typing")]
     assert "HIGH" in api.edits[0]["text"]
     assert "TEMPORARY_HOLD" in api.edits[0]["text"]
 
@@ -166,7 +171,42 @@ def test_result_formatter_escapes_telegram_html() -> None:
         }
     )
     assert "<script>" not in formatted
-    assert "&lt;script&gt;" in formatted
+    assert "&lt;script&gt;" in formatted.lower()
+
+
+def test_failed_result_uses_human_indonesian_fallback() -> None:
+    formatted = format_result(
+        {
+            "status": "failed",
+            "trace_id": None,
+            "risk": {"score": None, "level": "UNKNOWN"},
+            "policy": {"decision": "PENDING"},
+            "recommended_action": {
+                "message": "Do not treat this result as a safety decision"
+            },
+        }
+    )
+    assert "Pemeriksaan belum berhasil" in formatted
+    assert "bukan" in formatted
+    assert "Do not treat" not in formatted
+
+
+def test_shortlink_result_explains_unverified_destination_in_indonesian() -> None:
+    formatted = format_result(
+        {
+            "status": "completed",
+            "trace_id": "trace-1",
+            "risk": {"score": 95, "level": "CRITICAL"},
+            "policy": {"decision": "TEMPORARY_HOLD"},
+            "recommended_action": {"code": "DO_NOT_PROCEED"},
+            "signals": ["GOVERNMENT_AID_LURE", "URL_SHORTENER"],
+            "providers": [{"name": "virustotal", "status": "FAILED"}],
+        }
+    )
+
+    assert "bantuan sosial" in formatted
+    assert "Tujuan akhir dan status aksesnya belum dapat dipastikan" in formatted
+    assert "Jangan lanjutkan transaksi" in formatted
 
 
 def test_parser_ignores_channel_posts_and_invalid_updates() -> None:

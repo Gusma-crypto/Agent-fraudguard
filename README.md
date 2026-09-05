@@ -370,6 +370,9 @@ Setelah consent valid, bot segera mengirim satu pesan progres sesuai skill, misa
 yang sama diedit menjadi hasil akhir. Ini menjaga progres tetap terlihat tanpa membuat
 deretan pesan status. Bila model/dependency gagal, pesan progres diganti dengan fallback
 `UNKNOWN/PENDING`, bukan dibiarkan sebagai hasil palsu.
+Selama proses berlangsung, Bridge juga memperbarui native Telegram `typing` chat action
+setiap empat detik. Pengguna akan melihat indikator titik-titik di bagian atas chat;
+indikator berhenti otomatis ketika analisis selesai atau dibatalkan.
 
 Keep BotFather privacy mode enabled for groups. Test `/start`, choose **Setuju**, resend
 a synthetic suspicious message, then test `/revoke`. A valid Core result includes a real
@@ -379,6 +382,17 @@ without inventing a risk score.
 `/cek` and `/analisis` require content, for example `/cek pesan mencurigakan`, or must be
 sent as a reply to the target message. An empty command returns usage guidance and does
 not call OpenClaw/Core.
+
+Untuk command fraud, social engineering, dan intelligence, Bridge mewajibkan OpenClaw
+memanggil typed `intelligence_lookup`. Bridge mempertahankan pesan asli sebagai input
+ingestion dan mengaktifkan deep search. Dengan demikian, narasi model tanpa hasil Core
+tidak dapat berubah menjadi verdict Telegram.
+
+Hasil Telegram memakai Bahasa Indonesia dan tetap menampilkan code Core agar audit dapat
+dicocokkan. Untuk shortlink, bot menjelaskan bahwa alamat tujuan dan status akses akhirnya
+belum dapat dipastikan dari shortlink itu sendiri—bukan berarti link aman, mati, atau
+terbukti berbahaya. Bot hanya menulis bahwa provider mencatat respons gagal jika Core mengembalikan signal
+`URL_UNREACHABLE`; status tersebut tetap merupakan observation yang dapat berubah.
 
 ### VPS runbook: OpenClaw Gateway dan Telegram
 

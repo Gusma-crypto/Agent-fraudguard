@@ -61,6 +61,8 @@ Forward skenario sintetis atau kirim:
 Bot menampilkan satu pesan loading lalu mengeditnya menjadi hasil Core. Jangan menjanjikan
 nilai score atau policy tertentu. Tunjukkan signal, rekomendasi, dan trace ID yang benar-benar
 dikembalikan saat demo.
+Selama analisis, indikator mengetik berupa titik-titik muncul di bagian atas chat dan
+diperbarui berkala sampai hasil atau fallback tersedia.
 
 ### 3. Intelligence
 
@@ -74,6 +76,9 @@ Gunakan salah satu command berikut:
 
 Hasil kosong bukan bukti aman. Provider error, evidence, claim, corroboration, dan status
 verifikasi harus disampaikan sesuai respons Core; jangan memakai angka laporan buatan.
+Untuk demo shortlink, jelaskan bahwa shortlink menyembunyikan tujuan akhir dan status
+aksesnya tidak dapat dipastikan dari shortlink itu sendiri. Bot hanya boleh menyebut
+provider mencatat respons gagal jika Core mengembalikan observation `URL_UNREACHABLE`.
 
 ### 4. Safety payment
 

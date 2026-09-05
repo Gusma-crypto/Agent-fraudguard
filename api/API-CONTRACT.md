@@ -44,7 +44,9 @@ meminta pengguna Telegram membuat ID teknis.
 
 Command tanpa teks/reply hanya menghasilkan petunjuk input. Setelah consent lolos,
 Bridge mengirim satu pesan progres dan mengedit pesan yang sama menjadi hasil akhir;
-progress bukan evidence atau decision. Raw Telegram user/chat ID diubah menjadi HMAC
+Bridge juga mengirim `sendChatAction(typing)` secara berkala selama call berlangsung.
+Chat action bersifat presentasi sementara, bukan progress authoritative, evidence, atau
+decision. Raw Telegram user/chat ID diubah menjadi HMAC
 pseudonym; credential Telegram tidak pernah menjadi bagian dari response, log aplikasi,
 atau konfigurasi frontend.
 
@@ -79,6 +81,13 @@ tools and executes returned function calls against Core. This works without sand
 network access and keeps OpenClaw as the planner. The loopback tool adapter on port `3000`
 is a TUI/admin fallback; its legacy `/agent/v1/chat` route is not exposed by Caddy and
 must not be used by OpenClaw skills, preventing a second planner.
+
+When Telegram explicitly selects `fraud-detection`, `social-engineering`, or
+`intelligence-search`, the Bridge requires a function call and limits that turn to
+`intelligence_lookup`. It sets `deep_search=true` and adds the original message to
+`input.text`; the model cannot replace the source message or complete the turn using only
+its own risk narrative. Protected response fields are still overwritten from Core tool
+results only.
 
 Core success envelope wajib memiliki `data` dan `meta.trace_id`. Protected workflow
 fail closed pada timeout, response malformed, atau Core rejection.
