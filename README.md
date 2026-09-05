@@ -1,5 +1,12 @@
 # FraudGuard AI Agent
 
+## Unified OpenClaw path (2026-09-05)
+
+OpenClaw selects an installed protection skill and invokes a typed Core tool. Core performs
+multi-entity provider routing, persistence, risk, policy, and decision. The Bridge preserves a
+short natural-language OpenClaw explanation while replacing every protected field with the
+Core-returned value. Telegram and web share one authoritative normalized result.
+
 FraudGuard AI Agent adalah layer **Reasoning + Orchestration + Conversation** untuk
 FraudGuard Core di repository `Fraudguard-core`.
 

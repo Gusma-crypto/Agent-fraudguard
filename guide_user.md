@@ -1,5 +1,13 @@
 # Panduan Pengguna FraudGuard AI Agent
 
+## Uji alur OpenClaw, Core, Telegram, dan web
+
+Gunakan satu pesan yang memiliki URL, nomor telepon, rekening, nominal, dan pola manipulasi.
+OpenClaw harus memilih skill dan memanggil Core; hasil harus memiliki `trace_id`, provider
+status, evidence/claim, risk, policy, serta narasi bahasa pengguna. Telegram menampilkan narasi
+sebagai “Penjelasan OpenClaw berdasarkan hasil Core”, sedangkan web menampilkannya pada hasil.
+Jika Core tidak memberi hasil authoritative, kedua kanal wajib menampilkan `UNKNOWN/PENDING`.
+
 Pada deployment OpenClaw, percakapan frontend masuk melalui FraudGuard OpenClaw Bridge.
 OpenClaw menjadi satu-satunya pemilih skill dan urutan tool. Tool adapter hanya
 memvalidasi serta menjalankan satu tool yang dipilih OpenClaw; FraudGuard Core tetap

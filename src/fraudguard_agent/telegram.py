@@ -350,6 +350,16 @@ def format_result(result: dict[str, Any]) -> str:
             ]
         )
     parts.extend(["", "<b>Rekomendasi:</b>", html.escape(recommendation)])
+    explanation = result.get("message")
+    if isinstance(explanation, str) and explanation.strip():
+        compact_explanation = " ".join(explanation.split())[:900]
+        parts.extend(
+            [
+                "",
+                "<b>Penjelasan OpenClaw berdasarkan hasil Core:</b>",
+                html.escape(compact_explanation),
+            ]
+        )
     summary = result.get("summary")
     if isinstance(summary, dict):
         evidence_found = summary.get("evidence_found")

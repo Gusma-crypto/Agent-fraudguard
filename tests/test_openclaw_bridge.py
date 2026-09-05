@@ -113,7 +113,11 @@ def test_bridge_never_accepts_model_risk_without_core_result() -> None:
 
 def test_core_result_overwrites_model_decision() -> None:
     result = authoritative_response(
-        {"risk": {"score": 1}, "policy": {"decision": "ALLOW"}},
+        {
+            "message": "Tautan tidak dapat diakses; ini indikator, bukan bukti tunggal.",
+            "risk": {"score": 1},
+            "policy": {"decision": "ALLOW"},
+        },
         [
             {
                 "trace_id": "core-trace",
@@ -121,6 +125,7 @@ def test_core_result_overwrites_model_decision() -> None:
                     "score": 91,
                     "severity": "HIGH",
                     "signals": ["IMPERSONATION"],
+                    "claims": [{"type": "REPORTED_WITH", "status": "UNDER_REVIEW"}],
                     "policy": {"decision": "TEMPORARY_HOLD"},
                 },
             }
@@ -131,3 +136,47 @@ def test_core_result_overwrites_model_decision() -> None:
     assert result["risk"]["score"] == 91
     assert result["policy"]["decision"] == "TEMPORARY_HOLD"
     assert result["recommended_action"]["code"] == "DO_NOT_PROCEED"
+    assert result["claims"][0]["status"] == "UNDER_REVIEW"
+    assert result["message"].startswith("Tautan tidak dapat diakses")
+
+
+def test_core_skills_are_preserved_with_requested_skill() -> None:
+    result = authoritative_response(
+        {"message": "Hasil tersedia."},
+        [
+            {
+                "trace_id": "core-trace",
+                "data": {
+                    "skills_used": ["fraud-detection:v1", "safety-payment:v1"],
+                    "risk": {"score": 80, "severity": "HIGH"},
+                    "policy": {"decision": "STEP_UP_VERIFY"},
+                },
+            }
+        ],
+        "fraud-detection:v1",
+    )
+
+    assert result["skills_used"] == ["fraud-detection:v1", "safety-payment:v1"]
+
+
+def test_internal_provider_queries_are_not_forwarded_to_channels() -> None:
+    result = authoritative_response(
+        {"provider_status": {"items": [{"variants": ["raw query"]}]}},
+        [
+            {
+                "trace_id": "core-trace",
+                "data": {
+                    "providers": [{"name": "tavily", "status": "SUCCESS"}],
+                    "provider_status": {"items": [{"variants": ["raw query"]}]},
+                    "routed_entities": [{"canonical_value": "+628123456789"}],
+                    "risk": {"score": 10, "severity": "LOW"},
+                    "policy": {"decision": "ALLOW"},
+                },
+            }
+        ],
+        "fraud-detection:v1",
+    )
+
+    assert "provider_status" not in result
+    assert "routed_entities" not in result
+    assert result["providers"] == [{"name": "tavily", "status": "SUCCESS"}]

@@ -1,5 +1,14 @@
 # Catatan Proyek FraudGuard AI
 
+## Sinkronisasi runtime lintas kanal — 2026-09-05
+
+- Jalur web dan Telegram sama-sama melalui OpenClaw Bridge lalu typed Core tools.
+- OpenClaw mengatur skill dan bahasa penjelasan; Core menentukan seluruh protected field.
+- Bridge mempertahankan narasi manusiawi hanya jika ada hasil Core dan tetap fail closed saat
+  tool/Core tidak memberi hasil authoritative.
+- Telegram melabeli narasi sebagai penjelasan berbasis Core agar tidak bercampur dengan
+  observation, claim, risk, atau policy decision.
+
 Dokumen ini adalah catatan operasional untuk handoff developer: apa yang berubah, alasan keputusan, status validasi, risiko, dan pekerjaan berikutnya.
 
 ## Status saat ini

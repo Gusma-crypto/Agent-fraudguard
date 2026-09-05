@@ -56,6 +56,7 @@ DEFAULT_TOOLS = (
 )
 CORE_AUTHORITY_FIELDS = (
     "actions",
+    "claims",
     "evidence",
     "graph",
     "input",
@@ -63,13 +64,16 @@ CORE_AUTHORITY_FIELDS = (
     "intelligence_health",
     "intervention_id",
     "policy",
+    "persistence",
     "providers",
     "recommended_action",
     "risk",
     "signals",
+    "skills_used",
     "summary",
     "trace",
 )
+CORE_INTERNAL_FIELDS = ("ingestion", "provider_status", "routed_entities")
 
 
 @asynccontextmanager
@@ -198,9 +202,13 @@ Requested skill: {selected}. Input type: {kind}.
 When a specific skill is requested, call one of the provided tools before answering.
 FraudGuard Core is the sole authority for evidence, risk, policy, and decisions.
 Never invent provider results, evidence, scores, policy, incidents, or trace IDs.
+First select the most relevant installed skill, then call FraudGuard Core. After Core
+returns, explain its result in the user's language with concise, natural wording.
+Clearly separate observed facts, extracted claims, and the Core decision. A failed or
+unreachable source is an observation, not proof of fraud. No evidence never means safe.
 Return exactly one JSON object with these fields when available:
 message, status, selected_skill, trace_id, risk, policy, recommended_action, signals,
-providers, summary, evidence, graph, trace, actions, intervention_id.
+providers, summary, evidence, graph, trace, actions, intervention_id, persistence.
 Use null, empty arrays, or empty objects when Core did not return a field.
 Do not wrap the JSON in Markdown.{intervention_context}{payment_context}"""
 
@@ -277,7 +285,15 @@ def authoritative_response(
 ) -> dict[str, Any]:
     """Overwrite protected fields only with values returned by FraudGuard Core."""
 
-    for field in (*CORE_AUTHORITY_FIELDS, "decision", "score", "severity", "trace_id"):
+    model_message = normalized.get("message")
+    for field in (
+        *CORE_AUTHORITY_FIELDS,
+        *CORE_INTERNAL_FIELDS,
+        "decision",
+        "score",
+        "severity",
+        "trace_id",
+    ):
         normalized.pop(field, None)
     merged: dict[str, Any] = {}
     trace_id: str | None = None
@@ -349,7 +365,9 @@ def authoritative_response(
         recommended_action = {"code": action_code, "message": action_message}
     normalized.update(
         {
-            "message": (
+            "message": model_message.strip()[:2000]
+            if isinstance(model_message, str) and model_message.strip()
+            else (
                 f"OpenClaw completed {selected_skill or 'automatic skill routing'}. "
                 f"FraudGuard Core returned risk {str(level or 'UNKNOWN').upper()}"
                 f"{'' if score is None else f' ({score}/100)'} and policy {decision}."
@@ -363,7 +381,18 @@ def authoritative_response(
             "decision": decision,
             "score": score,
             "severity": str(level or "UNKNOWN").upper(),
-            "skills_used": [selected_skill] if selected_skill else [],
+            "skills_used": list(
+                dict.fromkeys(
+                    [
+                        *(
+                            merged.get("skills_used", [])
+                            if isinstance(merged.get("skills_used"), list)
+                            else []
+                        ),
+                        *([selected_skill] if selected_skill else []),
+                    ]
+                )
+            ),
         }
     )
     provider_status = merged.get("provider_status")

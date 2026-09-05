@@ -1,5 +1,13 @@
 # Changelog
 
+## OpenClaw human explanation with Core authority — 2026-09-05
+
+- Required OpenClaw to select a relevant skill, call Core, and distinguish observation, claim,
+  and decision in the user's language.
+- Preserved the bounded model explanation while protected result fields come from Core only.
+- Preserved all Core-reported skills alongside the explicitly requested skill.
+- Added the OpenClaw explanation to Telegram's Indonesian result without changing Core risk.
+
 All notable workspace, product, configuration, and documentation changes are recorded here. This project follows a simple Keep a Changelog style; versions will be assigned when an implementation milestone is released.
 
 ## Unreleased
